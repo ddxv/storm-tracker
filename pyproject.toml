@@ -1,0 +1,31 @@
+[project]
+authors = [{ name = "James O'Claire" }]
+name = "storm-tracker-backend"
+description = "Crawl latest storm tracker data and serve it via an API."
+version = "0.0.1"
+dependencies = ["litestar[standard]", "pydantic", "tropycal"]
+
+[project.optional-dependencies]
+dev = ["pre-commit", "bump2version"]
+
+[build-system]
+requires = ["setuptools", "wheel"]
+
+
+[tool.isort]
+profile = 'black'
+
+[tool.ruff]
+# Enable flake8-bugbear (`B`) rules.
+select = ["E", "F", "B", "I", "N"]
+
+# Never enforce `E501` (line length violations).
+ignore = ["E501"]
+
+# Avoid trying to fix flake8-bugbear (`B`) violations.
+unfixable = ["B"]
+
+[tool.mypy]
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
