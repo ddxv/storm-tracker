@@ -1,5 +1,6 @@
 
 # location of images
+exported-images/
 exported-images/*
 
 ### JupyterNotebooks ###
