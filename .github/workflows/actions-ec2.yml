@@ -4,12 +4,11 @@ name: Push-to-EC2
 on:
   push:
     branches:
-      - main
       - master
 
 jobs:
   deploy:
-    name: Deploy to EC2 on main branch push
+    name: Deploy to EC2 on master branch push
     runs-on: ubuntu-latest
     environment: production
     steps:
@@ -29,5 +28,5 @@ jobs:
           script: |
             cd $TARGETDIR
             pwd
-            git pull origin main
+            git pull origin master
             sudo systemctl restart storm-tracker-api
