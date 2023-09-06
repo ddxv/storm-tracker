@@ -70,7 +70,7 @@ class StormController(Controller):
         """
 
         with open(
-            f"{IMAGES_DIR}/{date_str}/{storm_id}/tropycal_realtime_forecast.jpg", "rb"
+            f"{IMAGES_DIR}/{date_str}/{storm_id}/tropycal_forecast_realtime.jpg", "rb"
         ) as image_file:
             image_data = image_file.read()
 
