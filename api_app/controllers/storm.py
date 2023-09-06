@@ -1,6 +1,10 @@
-from litestar import Controller, get
+import datetime
+import os
+
+from litestar import Controller, Response, get
 
 from api_app.models import Storm, Storms
+from config.config import IMAGES_DIR
 
 """
 /storms/{storm_id} a specific article
@@ -8,23 +12,33 @@ from api_app.models import Storm, Storms
 """
 
 
+def get_string_date_from_days_ago(days: int) -> str:
+    mydate = datetime.datetime.utcnow() - datetime.timedelta(days=days)
+    mydate_str = mydate.strftime("%Y-%m-%d")
+    return mydate_str
+
+
+def get_most_recent_storm_dirs() -> tuple[str, list[str]]:
+    storm_dirs: list = []
+    i = 0
+    while len(storm_dirs) == 0 and i <= 5:
+        date_str = get_string_date_from_days_ago(i)
+        if date_str in os.listdir(IMAGES_DIR):
+            storm_dirs = os.listdir(f"{IMAGES_DIR}/{date_str}")
+            print(f"{date_str=} found {len(storm_dirs)} directories")
+        else:
+            print(f"{date_str=} found no directories")
+        i += 1
+    return date_str, storm_dirs
+
+
+def get_storm_images(date_str: str, storm_id: str) -> tuple[str, list[str]]:
+    storm_dirs = os.listdir(f"{IMAGES_DIR}/{date_str}")
+    return date_str, storm_dirs
+
+
 class StormController(Controller):
     path = "/api/storms"
-
-    @get(path="/{storm_id:str}")
-    async def get_storm(self, storm_id: str) -> Storm:
-        """
-        Handles a GET request for a specific storm.
-
-        Args:
-            storm_id (storm): The id of the storm to retrieve.
-
-        Returns:
-            Storm: A dictionary representation of the storm.
-        """
-        # df = query_article(storm_id)
-        mydict: Storm = Storm(storm_id, crawled_at="2021-10-10")
-        return mydict
 
     @get(path="/")
     async def get_storms_list(self) -> Storms:
@@ -36,10 +50,28 @@ class StormController(Controller):
         Returns:
             Storms: A dictionary representation of the list of articles.
         """
-        mydict: Storms = Storms(
-            [
-                Storm(id="1", crawled_at="2021-10-10"),
-                Storm(id="2", crawled_at="2022-10-10"),
-            ]
-        )
+        date_str, storm_dirs = get_most_recent_storm_dirs()
+
+        mydict = Storms([Storm(id=mystorm, date=date_str) for mystorm in storm_dirs])
+
         return mydict
+
+    @get(path="/{date_str:str}/{storm_id:str}/image")
+    async def get_storm_image(self, date_str: str, storm_id: str) -> Response[bytes]:
+        """
+        Handles a GET request for a specific storm image.
+
+        Args:
+            date_str (str): The date str in format YYYY-mm-dd
+            storm_id (str): The id of the storm to retrieve.
+
+        Returns:
+            Bytes media type image/jpeg.
+        """
+
+        with open(
+            f"{IMAGES_DIR}/{date_str}/{storm_id}/tropycal_realtime_forecast.jpg", "rb"
+        ) as image_file:
+            image_data = image_file.read()
+
+        return Response(image_data, media_type="image/jpeg")
