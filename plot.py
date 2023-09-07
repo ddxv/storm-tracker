@@ -1,9 +1,14 @@
+import datetime
+
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import matplotlib.lines as mlines
+import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 from cartopy.mpl.ticker import LatitudeFormatter, LatitudeLocator, LongitudeFormatter
+from matplotlib.patches import PathPatch
+from matplotlib.path import Path
 from tropycal.realtime import RealtimeStorm
 
 
@@ -46,6 +51,12 @@ def get_colors_sshws(wind_speed: int) -> str:
 
 
 def plot_storm(storm: RealtimeStorm, storm_forecast: dict) -> plt.figure:
+    by_hour = 12
+    storm["should_plot_step"] = [x.hour / by_hour == 0 for x in storm["time"]]
+    storm_forecast["already_forcasted"] = [
+        (datetime.timedelta(hours=x) + storm_forecast["init"]) <= storm.time.max()
+        for x in storm_forecast["fhr"]
+    ]
     lats = storm["lat"].tolist() + storm_forecast["lat"]
     lons = storm["lon"].tolist() + storm_forecast["lon"]
 
@@ -102,26 +113,36 @@ def plot_storm(storm: RealtimeStorm, storm_forecast: dict) -> plt.figure:
         cfeature.OCEAN.with_scale("50m"), facecolor=water_color, edgecolor="face"
     )
 
-    # Plot Line
-    ax.plot(
-        storm["lon"],
-        storm["lat"],
-        transform=ccrs.PlateCarree(),
-        linewidth=1,
-        color="gray",
-    )
-
-    # Plot Dots
+    # Plot Storm (already happened) Dots
+    storm_line_x = []
+    storm_line_y = []
     for i in range(0, len(storm["lat"])):
+        if not storm["should_plot_step"][i]:
+            continue
         ax.plot(
             storm["lon"][i],
             storm["lat"][i],
             transform=ccrs.PlateCarree(),
             linewidth=2,
             marker="o",
+            markersize=marker_size,
             color=get_colors_sshws(np.nan_to_num(storm["vmax"][i])),
+            zorder=2,
         )
+        storm_line_x.append(storm["lon"][i])
+        storm_line_y.append(storm["lat"][i])
 
+    # Plot Line
+    ax.plot(
+        storm_line_x,
+        storm_line_y,
+        transform=ccrs.PlateCarree(),
+        linewidth=1,
+        color="gray",
+        zorder=1,
+    )
+
+    # Plot Storm (forecast) Dots
     for i in range(0, len(storm_forecast["lat"])):
         if storm_forecast["already_forcasted"][i]:
             continue
@@ -153,11 +174,149 @@ def plot_storm(storm: RealtimeStorm, storm_forecast: dict) -> plt.figure:
             transform=ccrs.PlateCarree(),
             marker="o",
             color=get_colors_sshws(np.nan_to_num(storm_forecast["vmax"][i])),
-            markersize=20,
+            markersize=marker_size,
             zorder=2,
         )
 
-    ax.legend(handles=[ex, sb, uk, td, ts, c1, c2, c3, c4, c5], prop={"size": 7.5})
+    # # Plot Cone of Uncertainty (forecast)
+    # for i in range(0, len(storm_forecast["lat"])):
+    #     if storm_forecast["already_forcasted"][i]:
+    #         continue
+    #     fhr = storm_forecast["fhr"][i]
+    #     if fhr in my_cone:
+    #         radius = my_cone[fhr]  # get the radius for the forecast hour
+    #         e = patches.Ellipse(
+    #             (storm_forecast["lon"][i], storm_forecast["lat"][i]),
+    #             width=2*radius/60,  # width of the ellipse
+    #             height=2*radius/60,  # height of the ellipse
+    #             fc='red',
+    #             ec='green',
+    #             linestyle='--',
+    #             transform=ccrs.PlateCarree(),
+    #             zorder=1
+    #         )
+    #         ax.add_patch(e)
+
+    # Plot Cone of Uncertainty (forecast)
+    left_boundary: list = []
+    right_boundary: list = []
+
+    # for i in range(len(storm_forecast["lat"])):
+    #     if storm_forecast["already_forcasted"][i]:
+    #         continue
+    #     fhr = storm_forecast["fhr"][i]
+    #     if fhr in my_cone:
+    #         radius = my_cone[fhr] / 60  # get the radius for the forecast hour
+
+    #         # Calculate left and right boundary points based on the radius
+    #         left_boundary.append((storm_forecast["lon"][i] - radius, storm_forecast["lat"][i]-radius))
+    #         right_boundary.append((storm_forecast["lon"][i] + radius, storm_forecast["lat"][i]+radius))
+
+    #         # Plot individual ellipse (for visualization)
+    #         e = patches.Ellipse(
+    #             (storm_forecast["lon"][i], storm_forecast["lat"][i]),
+    #             width=2*radius,
+    #             height=2*radius,
+    #             fc='tan',
+    #             ec='black',
+    #             linestyle='--',
+    #             transform=ccrs.PlateCarree(),
+    #             zorder=1
+    #         )
+    #         ax.add_patch(e)
+
+    def closest_point_on_circle(
+        cx: float, cy: float, r_lat: float, r_lon: float, px: float, py: float
+    ) -> tuple[float, float]:
+        """Find the closest point on a circle to an external point."""
+        # Vector from circle's center to the point
+        vx = px - cx
+        vy = py - cy
+
+        # Distance from circle's center to the point
+        dist = np.sqrt(vx**2 + vy**2)
+
+        # Normalize the vector
+        vx /= dist
+        vy /= dist
+
+        # Scale by the circle's radius
+        vx *= r_lat
+        vy *= r_lat
+
+        # Translate back to circle's center
+        qx = cx + vx
+        qy = cy + vy
+
+        return qx, qy
+
+    # Plot Cone of Uncertainty (forecast)
+    left_boundary = []
+    right_boundary = []
+
+    for i in range(len(storm_forecast["lat"])):
+        if storm_forecast["already_forcasted"][i]:
+            continue
+        fhr = storm_forecast["fhr"][i]
+        if fhr in my_cone:
+            radius_nautical_miles = my_cone[fhr]  # get the radius for the forecast hour
+
+            radius_lat = radius_nautical_miles / 60
+            radius_lon = radius_nautical_miles / (
+                60 * np.cos(np.radians(storm_forecast["lat"][i]))
+            )
+
+            # Calculate left and right boundary points based on the radius
+            qx_left, qy_left = closest_point_on_circle(
+                storm_forecast["lon"][i],
+                storm_forecast["lat"][i],
+                radius_lat,
+                radius_lat,
+                storm_forecast["lon"][i] - radius_lon,
+                storm_forecast["lat"][i] - radius_lat,
+            )
+            qx_right, qy_right = closest_point_on_circle(
+                storm_forecast["lon"][i],
+                storm_forecast["lat"][i],
+                radius_lat,
+                radius_lat,
+                storm_forecast["lon"][i] + radius_lon,
+                storm_forecast["lat"][i] + radius_lat,
+            )
+
+            left_boundary.append((qx_left, qy_left))
+            right_boundary.append((qx_right, qy_right))
+
+            # Plot individual ellipse (for visualization)
+            e = patches.Ellipse(
+                (storm_forecast["lon"][i], storm_forecast["lat"][i]),
+                width=2 * radius_nautical_miles / 60,
+                height=2 * radius_nautical_miles / 60,
+                fc=cone_color,
+                alpha=1,
+                ec=cone_color,
+                linestyle="--",
+                transform=ccrs.PlateCarree(),
+                zorder=0,
+            )
+            ax.add_patch(e)
+
+    # Combine the left and right boundaries to form the cone
+    cone_boundary = left_boundary + right_boundary[::-1] + [left_boundary[0]]
+
+    codes = [Path.MOVETO] + [Path.LINETO] * (len(cone_boundary) - 2) + [Path.CLOSEPOLY]
+    path = Path(cone_boundary, codes)
+    patch = PathPatch(
+        path,
+        facecolor=cone_color,
+        edgecolor=cone_color,
+        alpha=1,
+        zorder=0,
+        transform=ccrs.PlateCarree(),
+    )
+    ax.add_patch(patch)
+
+    ax.legend(handles=[td, ts, c1, c2, c3, c4, c5], prop={"size": 7.5})
 
     label_style = {"size": 12, "color": "black"}
 
@@ -171,22 +330,24 @@ def plot_storm(storm: RealtimeStorm, storm_forecast: dict) -> plt.figure:
     )
     gl.top_labels = False
     gl.left_labels = False
-    # gl.xlines = False
-    # gl.xlocator = mticker.FixedLocator([-180, -45, 0, 45, 180])
     gl.ylocator = LatitudeLocator()
     gl.xformatter = LongitudeFormatter()
     gl.yformatter = LatitudeFormatter()
     gl.ylabel_style = label_style
     gl.xlabel_style = label_style
 
-    # Zoom in over the Gulf Coast
+    # Zoom in over Storm
     ax.set_extent(storm_box, crs=ccrs.PlateCarree())
     return fig
 
 
+cone_color = "#fffde6"
+cone_color = "#e6f2ff"
+cone_color = "#fff8d5"
 water_color = "#d5f0ff"
 land_color = "#fcf3e8"
 land_scale = "50m"
+marker_size = 20
 
 
 legend_size = 7
@@ -301,3 +462,18 @@ c5 = mlines.Line2D(
     marker="o",
     color=get_colors_sshws(137),
 )
+
+my_cone = {
+    0: 0,
+    12: 16,
+    24: 26,
+    36: 39,
+    48: 53,
+    60: 67,
+    72: 81,
+    96: 99,
+    108: 145,
+    120: 205,
+}
+# fig = plot_storm(storm, storm_forecast)
+# fig.show()
