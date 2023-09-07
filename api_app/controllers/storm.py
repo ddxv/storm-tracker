@@ -56,7 +56,7 @@ class StormController(Controller):
 
         return mydict
 
-    @get(path="/{date_str:str}/{storm_id:str}/image")
+    @get(path="/{date_str:str}/{storm_id:str}/ucar/image")
     async def get_storm_image(self, date_str: str, storm_id: str) -> Response[bytes]:
         """
         Handles a GET request for a specific storm image.
@@ -70,7 +70,28 @@ class StormController(Controller):
         """
 
         with open(
-            f"{IMAGES_DIR}/{date_str}/{storm_id}/tropycal_forecast_realtime.jpg", "rb"
+            f"{IMAGES_DIR}/{date_str}/{storm_id}/ucar_tropycal_forecast_realtime.jpg",
+            "rb",
+        ) as image_file:
+            image_data = image_file.read()
+
+        return Response(image_data, media_type="image/jpeg")
+
+    @get(path="/{date_str:str}/{storm_id:str}/ucar/myimage")
+    async def get_mystorm_image(self, date_str: str, storm_id: str) -> Response[bytes]:
+        """
+        Handles a GET request for a specific storm image.
+
+        Args:
+            date_str (str): The date str in format YYYY-mm-dd
+            storm_id (str): The id of the storm to retrieve.
+
+        Returns:
+            Bytes media type image/jpeg.
+        """
+
+        with open(
+            f"{IMAGES_DIR}/{date_str}/{storm_id}/ucar_myimage.jpg", "rb"
         ) as image_file:
             image_data = image_file.read()
 
