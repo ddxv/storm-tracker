@@ -261,7 +261,6 @@ def plot_all_forecasts(storm: RealtimeStorm, forecasts: dict) -> plt.figure:
         # fontsize=25,
         fontweight="bold",
     )
-    # ax.legend(handles=[td, ts, c1, c2, c3, c4, c5], prop={"size": 7.5})
 
     # Plot historical (already happened) Dots
     storm_line_x = []
@@ -294,7 +293,7 @@ def plot_all_forecasts(storm: RealtimeStorm, forecasts: dict) -> plt.figure:
 
     # Forecast Lines
     for model in forecasts.keys():
-        if model in my_models.keys():
+        if model not in my_models.keys():
             continue
         storm_forecast = forecasts[model][max(forecasts[model].keys())]
         by_hour = 12
@@ -318,10 +317,13 @@ def plot_all_forecasts(storm: RealtimeStorm, forecasts: dict) -> plt.figure:
             plot_y,
             transform=ccrs.PlateCarree(),
             linewidth=0.5,
-            color="blue",
+            color=my_models[model][
+                "color"
+            ],  # use the color from the dictionary, default to black if not found
             zorder=1,
+            label=model,
         )
-
+    ax.legend(loc="upper right", prop={"size": 7.5})
     return fig
 
 
@@ -460,14 +462,24 @@ my_cone = {
     120: 205,
 }
 
-my_models = models_dict = {
-    # "GFSO": "Global Forecast System Operational",
-    "HWRF": "Hurricane Weather Research and Forecasting Model",
-    "UKX": "UK Met Office Model",
-    # "NAM": "North American Mesoscale Forecast System",
-    "CMC": "Canadian Meteorological Centre",
-    "HMON": "Hurricanes in a Multi-scale Ocean-coupled Non-hydrostatic Model",
-    "ICON": "Icosahedral Nonhydrostatic Model",
+my_models = {
+    "HWRF": {
+        "name": "Hurricane Weather Research and Forecasting Model",
+        "color": "#1f77b4",  # muted blue
+    },
+    "UKX": {"name": "UK Met Office Model", "color": "#ff7f0e"},  # safety orange
+    "CMC": {
+        "name": "Canadian Meteorological Centre",
+        "color": "#2ca02c",  # cooked asparagus green
+    },
+    "HMON": {
+        "name": "Hurricanes in a Multi-scale Ocean-coupled Non-hydrostatic Model",
+        "color": "#d62728",  # brick red
+    },
+    "ICON": {
+        "name": "Icosahedral Nonhydrostatic Model",
+        "color": "#9467bd",  # muted purple
+    },
 }
 
 # fig = plot_storm(storm, storm_forecast)
