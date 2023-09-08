@@ -96,3 +96,23 @@ class StormController(Controller):
             image_data = image_file.read()
 
         return Response(image_data, media_type="image/jpeg")
+
+    @get(path="/{date_str:str}/{storm_id:str}/compare", cache=3600)
+    async def get_compare_image(self, date_str: str, storm_id: str) -> Response[bytes]:
+        """
+        Handles a GET request for a specific storm image.
+
+        Args:
+            date_str (str): The date str in format YYYY-mm-dd
+            storm_id (str): The id of the storm to retrieve.
+
+        Returns:
+            Bytes media type image/jpeg.
+        """
+
+        with open(
+            f"{IMAGES_DIR}/{date_str}/{storm_id}/compare.jpg", "rb"
+        ) as image_file:
+            image_data = image_file.read()
+
+        return Response(image_data, media_type="image/jpeg")
