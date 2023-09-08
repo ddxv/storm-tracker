@@ -56,7 +56,7 @@ class StormController(Controller):
 
         return mydict
 
-    @get(path="/{date_str:str}/{storm_id:str}/ucar/image")
+    @get(path="/{date_str:str}/{storm_id:str}/ucar/image", cache=3600)
     async def get_storm_image(self, date_str: str, storm_id: str) -> Response[bytes]:
         """
         Handles a GET request for a specific storm image.
@@ -77,7 +77,7 @@ class StormController(Controller):
 
         return Response(image_data, media_type="image/jpeg")
 
-    @get(path="/{date_str:str}/{storm_id:str}/ucar/myimage")
+    @get(path="/{date_str:str}/{storm_id:str}/ucar/myimage", cache=3600)
     async def get_mystorm_image(self, date_str: str, storm_id: str) -> Response[bytes]:
         """
         Handles a GET request for a specific storm image.
