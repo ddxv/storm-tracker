@@ -4,7 +4,7 @@ import pathlib
 from tropycal import realtime
 
 from config.config import IMAGES_DIR
-from plot import plot_storm
+from plot import plot_all_forecasts, plot_storm
 
 
 def main() -> None:
@@ -27,7 +27,7 @@ def main() -> None:
             try:
                 storm_forecast = storm.get_forecast_realtime(ssl_certificate=False)
             except Exception as e:
-                print(f"Get forecast caught exception {e}")
+                print(f"Tropycal get storm forecast caught exception {e}")
                 continue
 
             pathlib.Path(f"{my_dir}/{storm_id}").mkdir(parents=True, exist_ok=True)
@@ -35,10 +35,19 @@ def main() -> None:
                 storm.plot_forecast_realtime(
                     save_path=f"{my_dir}/{storm_id}/{data_source}_tropycal_forecast_realtime.jpg"
                 )
+            except Exception as e:
+                print(f"Plot Tropycal JPG get forecast caught exception {e}")
+            try:
                 fig = plot_storm(storm, storm_forecast)
                 fig.savefig(f"{my_dir}/{storm_id}/{data_source}_myimage.jpg")
             except Exception as e:
-                print(f"JPG Caught exception {e}")
+                print(f"Plot MyImage JPG Caught exception {e}")
+            try:
+                forecasts = storm.get_operational_forecasts()
+                fig = plot_all_forecasts(storm, forecasts)
+                fig.savefig(f"{my_dir}/{storm_id}/compare.jpg")
+            except Exception as e:
+                print(f"Plot Compare JPG Caught exception {e}")
 
 
 if __name__ == "__main__":
