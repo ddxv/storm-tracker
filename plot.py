@@ -3,12 +3,10 @@ import datetime
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
 import matplotlib.lines as mlines
-import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 from cartopy.mpl.ticker import LatitudeFormatter, LatitudeLocator, LongitudeFormatter
-from matplotlib.patches import PathPatch
-from matplotlib.path import Path
+from matplotlib.pyplot import Axes
 from tropycal.realtime import RealtimeStorm
 
 
@@ -50,16 +48,9 @@ def get_colors_sshws(wind_speed: int) -> str:
         return "#8B0088"
 
 
-def plot_storm(storm: RealtimeStorm, storm_forecast: dict) -> plt.figure:
-    by_hour = 12
-    storm["should_plot_step"] = [x.hour / by_hour == 0 for x in storm["time"]]
-    storm_forecast["already_forcasted"] = [
-        (datetime.timedelta(hours=x) + storm_forecast["init"]) <= storm.time.max()
-        for x in storm_forecast["fhr"]
-    ]
-    lats = storm["lat"].tolist() + storm_forecast["lat"]
-    lons = storm["lon"].tolist() + storm_forecast["lon"]
-
+def get_plot_box(
+    lats: list[float], lons: list[float]
+) -> tuple[tuple[float, float, float, float], float, float]:
     storm_s = min(lats)
     storm_n = max(lats)
     storm_w = max(lons)
@@ -87,27 +78,33 @@ def plot_storm(storm: RealtimeStorm, storm_forecast: dict) -> plt.figure:
     plot_e = central_lon + plot_width / 2
     plot_w = central_lon - plot_width / 2
     plot_box = (plot_w, plot_e, plot_s, plot_n)
+    return plot_box, central_lat, central_lon
 
-    # Create an instance of figure and axes
-    # fig = plt.figure(figsize=(9, 6), dpi=400)
-    fig = plt.figure(figsize=(5, 5), dpi=400)
 
-    ax = plt.axes(
-        projection=ccrs.Orthographic(
-            central_longitude=central_lon, central_latitude=central_lat
-        )
-    )
-
-    ax.set_title(
-        "DEVELOPING HURRICANE " + storm["name"],
-        loc="left",
-        # fontsize=25,
+def add_annotation_pointers(ax: Axes, fhr: float, xy: tuple[float, float]) -> None:
+    ax.annotate(
+        text=str(fhr),
+        xy=xy,
+        xycoords="data",
+        xytext=(20, 20),
+        textcoords="offset points",
         fontweight="bold",
+        ha="center",
+        va="center",
+        arrowprops=dict(
+            arrowstyle="-",
+            shrinkA=0,
+            shrinkB=0,
+            connectionstyle="arc3",
+            color="k",
+        ),
+        transform=ccrs.PlateCarree(),
+        clip_on=True,
+        zorder=1,
     )
-    ax.legend(handles=[td, ts, c1, c2, c3, c4, c5], prop={"size": 7.5})
 
-    # ax.set_title(label=storm['name'], loc='left', fontsize=17, fontweight='bold')
 
+def add_background_maps(ax: Axes) -> None:
     # Plot coastlines and political boundaries
     ax.add_feature(
         cfeature.STATES.with_scale("50m"),
@@ -136,7 +133,45 @@ def plot_storm(storm: RealtimeStorm, storm_forecast: dict) -> plt.figure:
         cfeature.OCEAN.with_scale("50m"), facecolor=water_color, edgecolor="face"
     )
 
-    # Plot Storm (already happened) Dots
+
+def add_grid_lines(ax: Axes) -> None:
+    axes_label_style = {"size": 12, "color": "black"}
+    gl = ax.gridlines(
+        crs=ccrs.PlateCarree(),
+        draw_labels=True,
+        linewidth=0.5,
+        color="gray",
+        alpha=0.5,
+        linestyle="--",
+    )
+    gl.top_labels = False
+    gl.left_labels = False
+    gl.ylocator = LatitudeLocator()
+    gl.xformatter = LongitudeFormatter()
+    gl.yformatter = LatitudeFormatter()
+    gl.ylabel_style = axes_label_style
+    gl.xlabel_style = axes_label_style
+
+
+def plot_storm(storm: RealtimeStorm, storm_forecast: dict) -> plt.figure:
+    by_hour = 12
+    storm["should_plot_step"] = [x.hour / by_hour == 0 for x in storm["time"]]
+    storm_forecast["already_forcasted"] = [
+        (datetime.timedelta(hours=x) + storm_forecast["init"]) <= storm.time.max()
+        for x in storm_forecast["fhr"]
+    ]
+
+    fig, ax = plot_base(storm, storm_forecast)
+
+    ax.set_title(
+        "DEVELOPING HURRICANE " + storm["name"],
+        loc="left",
+        # fontsize=25,
+        fontweight="bold",
+    )
+    ax.legend(handles=[td, ts, c1, c2, c3, c4, c5], prop={"size": 7.5})
+
+    # Plot historical (already happened) Dots
     storm_line_x = []
     storm_line_y = []
     for i in range(0, len(storm["lat"])):
@@ -155,7 +190,7 @@ def plot_storm(storm: RealtimeStorm, storm_forecast: dict) -> plt.figure:
         storm_line_x.append(storm["lon"][i])
         storm_line_y.append(storm["lat"][i])
 
-    # Plot Line
+    # Plot Already happened Line
     ax.plot(
         storm_line_x,
         storm_line_y,
@@ -165,165 +200,127 @@ def plot_storm(storm: RealtimeStorm, storm_forecast: dict) -> plt.figure:
         zorder=1,
     )
 
-    # Plot Storm (forecast) Dots
+    # Forecast Dots
     for i in range(0, len(storm_forecast["lat"])):
         if storm_forecast["already_forcasted"][i]:
             continue
 
+        fhr = storm_forecast["fhr"][i]
+        x = storm_forecast["lon"][i]
+        y = storm_forecast["lat"][i]
+
         ax.plot(
-            storm_forecast["lon"][i],
-            storm_forecast["lat"][i],
+            x,
+            y,
             transform=ccrs.PlateCarree(),
             marker="o",
             color=get_colors_sshws(np.nan_to_num(storm_forecast["vmax"][i])),
             markersize=marker_size,
             zorder=2,
         )
-
         # Lables for hrs after forecast
-        if not storm_forecast["fhr"][i] % 24 == 0:
+        if not fhr % 24 == 0:
             continue
+        add_annotation_pointers(ax, fhr=fhr, xy=(x, y))
 
-        ax.annotate(
-            text=str(storm_forecast["fhr"][i]),
-            xy=(storm_forecast["lon"][i], storm_forecast["lat"][i]),
-            xycoords="data",
-            xytext=(20, 20),
-            textcoords="offset points",
-            fontweight="bold",
-            ha="center",
-            va="center",
-            arrowprops=dict(
-                arrowstyle="-",
-                shrinkA=0,
-                shrinkB=0,
-                connectionstyle="arc3",
-                color="k",
-            ),
+    return fig
+
+
+def plot_base(storm: RealtimeStorm, storm_forecast: dict) -> tuple[plt.figure, Axes]:
+    lats = storm["lat"].tolist() + storm_forecast["lat"]
+    lons = storm["lon"].tolist() + storm_forecast["lon"]
+
+    plot_box, central_lat, central_lon = get_plot_box(lats, lons)
+
+    fig = plt.figure(figsize=(5, 5), dpi=400)
+
+    ax = plt.axes(
+        projection=ccrs.Orthographic(
+            central_longitude=central_lon, central_latitude=central_lat
+        )
+    )
+
+    add_background_maps(ax)
+
+    add_grid_lines(ax)
+    ax.set_extent(plot_box, crs=ccrs.PlateCarree())
+    fig.tight_layout()
+    ax.set_aspect("auto")
+
+    add_background_maps(ax)
+
+    return fig, ax
+
+
+def plot_all_forecasts(storm: RealtimeStorm, forecasts: dict) -> plt.figure:
+    fig, ax = plot_base(storm, forecasts["HWRF"][max(forecasts["HWRF"].keys())])
+
+    ax.set_title(
+        "DEVELOPING HURRICANE " + storm["name"],
+        loc="left",
+        # fontsize=25,
+        fontweight="bold",
+    )
+    # ax.legend(handles=[td, ts, c1, c2, c3, c4, c5], prop={"size": 7.5})
+
+    # Plot historical (already happened) Dots
+    storm_line_x = []
+    storm_line_y = []
+    for i in range(0, len(storm["lat"])):
+        if not storm["should_plot_step"][i]:
+            continue
+        ax.plot(
+            storm["lon"][i],
+            storm["lat"][i],
             transform=ccrs.PlateCarree(),
-            clip_on=True,
+            linewidth=2,
+            marker="o",
+            markersize=marker_size,
+            color=get_colors_sshws(np.nan_to_num(storm["vmax"][i])),
+            zorder=2,
+        )
+        storm_line_x.append(storm["lon"][i])
+        storm_line_y.append(storm["lat"][i])
+
+    # Plot Already happened Line
+    ax.plot(
+        storm_line_x,
+        storm_line_y,
+        transform=ccrs.PlateCarree(),
+        linewidth=1,
+        color="gray",
+        zorder=1,
+    )
+
+    # Forecast Lines
+    for model in forecasts.keys():
+        if model in my_models.keys():
+            continue
+        storm_forecast = forecasts[model][max(forecasts[model].keys())]
+        by_hour = 12
+        storm["should_plot_step"] = [x.hour / by_hour == 0 for x in storm["time"]]
+        storm_forecast["already_forcasted"] = [
+            (datetime.timedelta(hours=x) + storm_forecast["init"]) < storm.time.max()
+            for x in storm_forecast["fhr"]
+        ]
+
+        plot_x = []
+        plot_y = []
+        for i in range(0, len(storm_forecast["lat"])):
+            if storm_forecast["already_forcasted"][i]:
+                continue
+            else:
+                plot_x.append(storm_forecast["lon"][i])
+                plot_y.append(storm_forecast["lat"][i])
+
+        ax.plot(
+            plot_x,
+            plot_y,
+            transform=ccrs.PlateCarree(),
+            linewidth=0.5,
+            color="blue",
             zorder=1,
         )
-
-    # Plot Cone of Uncertainty (forecast)
-    left_boundary: list = []
-    right_boundary: list = []
-
-    def closest_point_on_circle(
-        cx: float, cy: float, r_lat: float, r_lon: float, px: float, py: float
-    ) -> tuple[float, float]:
-        """Find the closest point on a circle to an external point."""
-        # Vector from circle's center to the point
-        vx = px - cx
-        vy = py - cy
-
-        # Distance from circle's center to the point
-        dist = np.sqrt(vx**2 + vy**2)
-
-        # Normalize the vector
-        vx /= dist
-        vy /= dist
-
-        # Scale by the circle's radius
-        vx *= r_lat
-        vy *= r_lat
-
-        # Translate back to circle's center
-        qx = cx + vx
-        qy = cy + vy
-
-        return qx, qy
-
-    # Plot Cone of Uncertainty (forecast)
-    left_boundary = []
-    right_boundary = []
-
-    for i in range(len(storm_forecast["lat"])):
-        if storm_forecast["already_forcasted"][i]:
-            continue
-        fhr = storm_forecast["fhr"][i]
-        if fhr in my_cone:
-            radius_nautical_miles = my_cone[fhr]  # get the radius for the forecast hour
-
-            radius_lat = radius_nautical_miles / 60
-            radius_lon = radius_nautical_miles / (
-                60 * np.cos(np.radians(storm_forecast["lat"][i]))
-            )
-
-            # Calculate left and right boundary points based on the radius
-            qx_left, qy_left = closest_point_on_circle(
-                storm_forecast["lon"][i],
-                storm_forecast["lat"][i],
-                radius_lat,
-                radius_lat,
-                storm_forecast["lon"][i] - radius_lon,
-                storm_forecast["lat"][i] - radius_lat,
-            )
-            qx_right, qy_right = closest_point_on_circle(
-                storm_forecast["lon"][i],
-                storm_forecast["lat"][i],
-                radius_lat,
-                radius_lat,
-                storm_forecast["lon"][i] + radius_lon,
-                storm_forecast["lat"][i] + radius_lat,
-            )
-
-            left_boundary.append((qx_left, qy_left))
-            right_boundary.append((qx_right, qy_right))
-
-            # Plot individual ellipse (for visualization)
-            e = patches.Ellipse(
-                (storm_forecast["lon"][i], storm_forecast["lat"][i]),
-                width=2 * radius_nautical_miles / 60,
-                height=2 * radius_nautical_miles / 60,
-                fc=cone_color,
-                alpha=1,
-                ec=cone_color,
-                linestyle="--",
-                transform=ccrs.PlateCarree(),
-                zorder=0,
-            )
-            ax.add_patch(e)
-
-    # Combine the left and right boundaries to form the cone
-    cone_boundary = left_boundary + right_boundary[::-1] + [left_boundary[0]]
-
-    codes = [Path.MOVETO] + [Path.LINETO] * (len(cone_boundary) - 2) + [Path.CLOSEPOLY]
-    path = Path(cone_boundary, codes)
-    patch = PathPatch(
-        path,
-        facecolor=cone_color,
-        edgecolor=cone_color,
-        alpha=1,
-        zorder=0,
-        transform=ccrs.PlateCarree(),
-    )
-    ax.add_patch(patch)
-
-    label_style = {"size": 12, "color": "black"}
-
-    gl = ax.gridlines(
-        crs=ccrs.PlateCarree(),
-        draw_labels=True,
-        linewidth=0.5,
-        color="gray",
-        alpha=0.5,
-        linestyle="--",
-    )
-    gl.top_labels = False
-    gl.left_labels = False
-    gl.ylocator = LatitudeLocator()
-    gl.xformatter = LongitudeFormatter()
-    gl.yformatter = LatitudeFormatter()
-    gl.ylabel_style = label_style
-    gl.xlabel_style = label_style
-
-    # Zoom in over Storm
-    ax.set_extent(plot_box, crs=ccrs.PlateCarree())
-
-    fig.tight_layout()
-
-    ax.set_aspect("auto")
 
     return fig
 
@@ -463,5 +460,18 @@ my_cone = {
     120: 205,
 }
 
+my_models = models_dict = {
+    # "GFSO": "Global Forecast System Operational",
+    "HWRF": "Hurricane Weather Research and Forecasting Model",
+    "UKX": "UK Met Office Model",
+    # "NAM": "North American Mesoscale Forecast System",
+    "CMC": "Canadian Meteorological Centre",
+    "HMON": "Hurricanes in a Multi-scale Ocean-coupled Non-hydrostatic Model",
+    "ICON": "Icosahedral Nonhydrostatic Model",
+}
+
 # fig = plot_storm(storm, storm_forecast)
+# fig.show()
+
+# fig = plot_all_forecasts(storm, forecasts)
 # fig.show()
