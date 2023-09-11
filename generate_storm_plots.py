@@ -2,13 +2,13 @@ import datetime
 import pathlib
 
 import pandas as pd
-from tropycal import Storm, realtime
+from tropycal import realtime
 
 from config.config import IMAGES_DIR
 from plot import plot_all_forecasts, plot_storm
 
 
-def get_df(storm: Storm) -> pd.DataFrame:
+def get_df(storm: realtime.storm) -> pd.DataFrame:
     storm_df = storm.to_dataframe()
     by_hour = 12
     days_ago = 5
