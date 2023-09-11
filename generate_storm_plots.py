@@ -1,10 +1,23 @@
 import datetime
 import pathlib
 
+import pandas as pd
 from tropycal import realtime
 
 from config.config import IMAGES_DIR
 from plot import plot_all_forecasts, plot_storm
+
+
+def get_df(storm: realtime.Storm) -> pd.DataFrame:
+    storm_df = storm.to_dataframe()
+    by_hour = 12
+    days_ago = 5
+    past_date = datetime.datetime.utcnow() - datetime.timedelta(days=days_ago)
+    storm_df["should_plot_step"] = (storm_df["time"] >= past_date) & (
+        storm_df["time"].dt.hour / by_hour == 0
+    )
+    storm_df["name"] = storm["name"]
+    return storm_df
 
 
 def main() -> None:
@@ -37,14 +50,15 @@ def main() -> None:
                 )
             except Exception as e:
                 print(f"Plot Tropycal JPG get forecast caught exception {e}")
+            storm_df = get_df(storm)
             try:
-                fig = plot_storm(storm, storm_forecast)
+                fig = plot_storm(storm_df, storm_forecast)
                 fig.savefig(f"{my_dir}/{storm_id}/{data_source}_myimage.jpg")
             except Exception as e:
                 print(f"Plot MyImage JPG Caught exception {e}")
             try:
                 forecasts = storm.get_operational_forecasts()
-                fig = plot_all_forecasts(storm, forecasts)
+                fig = plot_all_forecasts(storm_df, forecasts)
                 fig.savefig(f"{my_dir}/{storm_id}/compare.jpg")
             except Exception as e:
                 print(f"Plot Compare JPG Caught exception {e}")

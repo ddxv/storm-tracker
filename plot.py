@@ -5,9 +5,9 @@ import cartopy.feature as cfeature
 import matplotlib.lines as mlines
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from cartopy.mpl.ticker import LatitudeFormatter, LatitudeLocator, LongitudeFormatter
 from matplotlib.pyplot import Axes
-from tropycal.realtime import RealtimeStorm
 
 
 def get_colors_sshws(wind_speed: int) -> str:
@@ -66,17 +66,13 @@ def get_plot_box(
     padding_horizontal = storm_width / 4
 
     # If same then it is a box
-    plot_height = max(
-        [storm_height + padding_vertical, storm_width + padding_horizontal]
-    )
-    plot_width = max(
-        [storm_height + padding_vertical, storm_width + padding_horizontal]
-    )
+    plot_height = storm_height
+    plot_width = storm_height * 2
 
-    plot_n = central_lat + plot_height / 2
-    plot_s = central_lat - plot_height / 2
-    plot_e = central_lon + plot_width / 2
-    plot_w = central_lon - plot_width / 2
+    plot_n = (central_lat + plot_height / 2) + padding_vertical
+    plot_s = (central_lat - plot_height / 2) - padding_vertical
+    plot_e = (central_lon + plot_width / 2) + padding_horizontal
+    plot_w = (central_lon - plot_width / 2) - padding_horizontal
     plot_box = (plot_w, plot_e, plot_s, plot_n)
     return plot_box, central_lat, central_lon
 
@@ -153,9 +149,7 @@ def add_grid_lines(ax: Axes) -> None:
     gl.xlabel_style = axes_label_style
 
 
-def plot_storm(storm: RealtimeStorm, storm_forecast: dict) -> plt.figure:
-    by_hour = 12
-    storm["should_plot_step"] = [x.hour / by_hour == 0 for x in storm["time"]]
+def plot_storm(storm: pd.DataFrame, storm_forecast: dict) -> plt.figure:
     storm_forecast["already_forcasted"] = [
         (datetime.timedelta(hours=x) + storm_forecast["init"]) <= storm.time.max()
         for x in storm_forecast["fhr"]
@@ -164,7 +158,7 @@ def plot_storm(storm: RealtimeStorm, storm_forecast: dict) -> plt.figure:
     fig, ax = plot_base(storm, storm_forecast)
 
     ax.set_title(
-        "DEVELOPING HURRICANE " + storm["name"],
+        "DEVELOPING HURRICANE " + storm["name"].values[0],
         loc="left",
         # fontsize=25,
         fontweight="bold",
@@ -223,16 +217,19 @@ def plot_storm(storm: RealtimeStorm, storm_forecast: dict) -> plt.figure:
             continue
         add_annotation_pointers(ax, fhr=fhr, xy=(x, y))
 
+    fig.tight_layout()
+    ax.set_aspect("auto")
+
     return fig
 
 
-def plot_base(storm: RealtimeStorm, storm_forecast: dict) -> tuple[plt.figure, Axes]:
-    lats = storm["lat"].tolist() + storm_forecast["lat"]
-    lons = storm["lon"].tolist() + storm_forecast["lon"]
+def plot_base(storm: pd.DataFrame, storm_forecast: dict) -> tuple[plt.figure, Axes]:
+    lons = storm[storm["should_plot_step"]]["lon"].tolist() + storm_forecast["lon"]
+    lats = storm[storm["should_plot_step"]]["lat"].tolist() + storm_forecast["lat"]
 
     plot_box, central_lat, central_lon = get_plot_box(lats, lons)
 
-    fig = plt.figure(figsize=(5, 5), dpi=400)
+    fig = plt.figure(dpi=400)
 
     ax = plt.axes(
         projection=ccrs.Orthographic(
@@ -244,19 +241,17 @@ def plot_base(storm: RealtimeStorm, storm_forecast: dict) -> tuple[plt.figure, A
 
     add_grid_lines(ax)
     ax.set_extent(plot_box, crs=ccrs.PlateCarree())
-    fig.tight_layout()
-    ax.set_aspect("auto")
 
     add_background_maps(ax)
 
     return fig, ax
 
 
-def plot_all_forecasts(storm: RealtimeStorm, forecasts: dict) -> plt.figure:
+def plot_all_forecasts(storm: pd.DataFrame, forecasts: dict) -> plt.figure:
     fig, ax = plot_base(storm, forecasts["HWRF"][max(forecasts["HWRF"].keys())])
 
     ax.set_title(
-        "DEVELOPING HURRICANE " + storm["name"],
+        "DEVELOPING HURRICANE " + storm["name"].values[0],
         loc="left",
         # fontsize=25,
         fontweight="bold",
@@ -296,8 +291,6 @@ def plot_all_forecasts(storm: RealtimeStorm, forecasts: dict) -> plt.figure:
         if model not in my_models.keys():
             continue
         storm_forecast = forecasts[model][max(forecasts[model].keys())]
-        by_hour = 12
-        storm["should_plot_step"] = [x.hour / by_hour == 0 for x in storm["time"]]
         storm_forecast["already_forcasted"] = [
             (datetime.timedelta(hours=x) + storm_forecast["init"]) < storm.time.max()
             for x in storm_forecast["fhr"]
@@ -316,14 +309,16 @@ def plot_all_forecasts(storm: RealtimeStorm, forecasts: dict) -> plt.figure:
             plot_x,
             plot_y,
             transform=ccrs.PlateCarree(),
-            linewidth=0.5,
+            linewidth=1,
             color=my_models[model][
                 "color"
             ],  # use the color from the dictionary, default to black if not found
             zorder=1,
             label=model,
         )
-    ax.legend(loc="upper right", prop={"size": 7.5})
+    ax.legend(loc="upper right", prop={"size": 15})
+    fig.tight_layout()
+    ax.set_aspect("auto")
     return fig
 
 
@@ -482,8 +477,8 @@ my_models = {
     },
 }
 
-# fig = plot_storm(storm, storm_forecast)
+# fig = plot_storm(storm_df, storm_forecast)
 # fig.show()
 
-# fig = plot_all_forecasts(storm, forecasts)
+# fig = plot_all_forecasts(storm_df, forecasts)
 # fig.show()
