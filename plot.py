@@ -492,15 +492,16 @@ my_models = {
         "name": "Icosahedral Nonhydrostatic Model",
         "color": "#9467bd",  # muted purple
     },
-    "hafsa": {
+    "hfsa": {
         "name": "HAFS 1a",
-        "color": "#9462bd",
+        "color": "#e377c2",  # pink
     },
-    "hafsb": {
+    "hfsb": {
         "name": "HAFS 1b",
-        "color": "#9267bd",
+        "color": "#bcbd22",  # yellowish-green
     },
 }
+
 
 # fig = plot_storm(storm_df, storm_forecast)
 # fig.show()

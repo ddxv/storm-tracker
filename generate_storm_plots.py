@@ -79,11 +79,8 @@ def main() -> None:
     active_storms = realtime_obj.list_active_storms()
 
     date_str = datetime.datetime.utcnow().strftime("%Y-%m-%d")
-
     logging.info(f"Found {active_storms=}")
-
     my_dir = f"{IMAGES_DIR}/{date_str}"
-
     for storm_id in active_storms:
         logging.info(f"start {storm_id}")
 
