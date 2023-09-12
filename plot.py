@@ -9,7 +9,7 @@ import pandas as pd
 from cartopy.mpl.ticker import LatitudeFormatter, LatitudeLocator, LongitudeFormatter
 from matplotlib.pyplot import Axes
 
-from models import StormForecast
+from models import StormForecasts
 
 
 def get_colors_sshws(wind_speed: int) -> str:
@@ -151,16 +151,17 @@ def add_grid_lines(ax: Axes) -> None:
     gl.xlabel_style = axes_label_style
 
 
-def plot_storm(storm: StormForecast, storm_forecast: dict) -> plt.figure:
+def plot_storm(tropycal_storm_df: pd.DataFrame, storm_forecast: dict) -> plt.figure:
     storm_forecast["already_forcasted"] = [
-        (datetime.timedelta(hours=x) + storm_forecast["init"]) <= storm.time.max()
+        (datetime.timedelta(hours=x) + storm_forecast["init"])
+        <= tropycal_storm_df.time.max()
         for x in storm_forecast["fhr"]
     ]
 
-    fig, ax = plot_base(storm, storm_forecast)
+    fig, ax = plot_base(tropycal_storm_df, storm_forecast)
 
     ax.set_title(
-        "DEVELOPING HURRICANE " + storm["name"].values[0],
+        "DEVELOPING HURRICANE " + tropycal_storm_df["name"].values[0],
         loc="left",
         # fontsize=25,
         fontweight="bold",
@@ -170,21 +171,21 @@ def plot_storm(storm: StormForecast, storm_forecast: dict) -> plt.figure:
     # Plot historical (already happened) Dots
     storm_line_x = []
     storm_line_y = []
-    for i in range(0, len(storm["lat"])):
-        if not storm["should_plot_step"][i]:
+    for i in range(0, len(tropycal_storm_df["lat"])):
+        if not tropycal_storm_df["should_plot_step"][i]:
             continue
         ax.plot(
-            storm["lon"][i],
-            storm["lat"][i],
+            tropycal_storm_df["lon"][i],
+            tropycal_storm_df["lat"][i],
             transform=ccrs.PlateCarree(),
             linewidth=2,
             marker="o",
             markersize=marker_size,
-            color=get_colors_sshws(np.nan_to_num(storm["vmax"][i])),
+            color=get_colors_sshws(np.nan_to_num(tropycal_storm_df["vmax"][i])),
             zorder=2,
         )
-        storm_line_x.append(storm["lon"][i])
-        storm_line_y.append(storm["lat"][i])
+        storm_line_x.append(tropycal_storm_df["lon"][i])
+        storm_line_y.append(tropycal_storm_df["lat"][i])
 
     # Plot Already happened Line
     ax.plot(
@@ -226,16 +227,17 @@ def plot_storm(storm: StormForecast, storm_forecast: dict) -> plt.figure:
 
 
 def plot_base(
-    storm: pd.DataFrame, storm_forecast: pd.DataFrame
+    storm: pd.DataFrame, storm_forecast: pd.DataFrame | dict
 ) -> tuple[plt.figure, Axes]:
-    lons = (
-        storm[storm["should_plot_step"]]["lon"].tolist()
-        + storm_forecast["lon"].tolist()
-    )
-    lats = (
-        storm[storm["should_plot_step"]]["lat"].tolist()
-        + storm_forecast["lat"].tolist()
-    )
+    if isinstance(storm_forecast, dict):
+        forecast_lons = storm_forecast["lon"]
+        forecast_lats = storm_forecast["lat"]
+    else:
+        forecast_lons = storm_forecast["lon"].tolist()
+        forecast_lats = storm_forecast["lat"].tolist()
+
+    lons = storm[storm["should_plot_step"]]["lon"].tolist() + forecast_lons
+    lats = storm[storm["should_plot_step"]]["lat"].tolist() + forecast_lats
 
     plot_box, central_lat, central_lon = get_plot_box(lats, lons)
 
@@ -258,7 +260,7 @@ def plot_base(
 
 
 def plot_all_forecasts(
-    tropycal_storm_df: pd.DataFrame, my_storm_forecasts: dict
+    tropycal_storm_df: pd.DataFrame, my_storm_forecasts: StormForecasts
 ) -> plt.figure:
     example_forecast = [
         x for x in my_storm_forecasts.forecasts if x.model_id == "HWRF"
@@ -274,8 +276,6 @@ def plot_all_forecasts(
     )
 
     # Plot historical (already happened) Dots
-    storm_line_x = []
-    storm_line_y = []
     for i in range(0, len(tropycal_storm_df["lat"])):
         if not tropycal_storm_df["should_plot_step"][i]:
             continue
@@ -289,13 +289,11 @@ def plot_all_forecasts(
             color=get_colors_sshws(np.nan_to_num(tropycal_storm_df["vmax"][i])),
             zorder=2,
         )
-        storm_line_x.append(tropycal_storm_df["lon"][i])
-        storm_line_y.append(tropycal_storm_df["lat"][i])
 
     # Plot Already happened Line
     ax.plot(
-        storm_line_x,
-        storm_line_y,
+        tropycal_storm_df["lon"].tolist(),
+        tropycal_storm_df["lat"].tolist(),
         transform=ccrs.PlateCarree(),
         linewidth=1,
         color="gray",
@@ -303,10 +301,10 @@ def plot_all_forecasts(
     )
 
     # Forecast Lines
-    toplotmodels = [
+    models_to_plot = [
         x for x in my_storm_forecasts.forecasts if x.model_id in my_models.keys()
     ]
-    for mycast in toplotmodels:
+    for mycast in models_to_plot:
         model = mycast.model_id
         storm_forecast = mycast.dataframe
 
@@ -317,7 +315,7 @@ def plot_all_forecasts(
             mycast.forecast_date, datetime.time(hour=int(mycast.forecast_hour))
         )
 
-        storm_forecast["already_forcasted"] = [
+        storm_forecast["already_forecasted"] = [
             (datetime.timedelta(hours=x) + mydt) < tropycal_storm_df.time.max()
             for x in storm_forecast["fhr"].tolist()
         ]
