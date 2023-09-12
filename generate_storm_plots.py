@@ -7,6 +7,9 @@ from tropycal import realtime
 from config.config import IMAGES_DIR
 from plot import plot_all_forecasts, plot_storm
 
+# reload(hafs)
+# hafs_storms = hafs.get_most_recent_forecasts()
+
 
 def get_df(storm: realtime.storm) -> pd.DataFrame:
     storm_df = storm.to_dataframe()
