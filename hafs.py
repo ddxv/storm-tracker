@@ -105,7 +105,7 @@ def get_forecast(model: str, date_str: str, hour: str) -> StormForecasts:
             storm_id=storm_id,
             dataframe=stats_df,
             forecast_date=datetime.datetime.strptime(date_str, "%Y%m%d").date(),
-            forecast_hour=hour,
+            forecast_hour=int(hour),
             model_id=model,
         )
         forecasts.append(hafs_forecast)

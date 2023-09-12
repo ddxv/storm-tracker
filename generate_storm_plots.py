@@ -1,3 +1,4 @@
+import argparse
 import datetime
 import logging
 import pathlib
@@ -14,13 +15,27 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
-TEST = True
+def manage_cli_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "-t",
+        "--test",
+        help="If included only run a few records",
+        default=False,
+        action="store_true",
+    )
+    args, leftovers = parser.parse_known_args()
+    return args
 
 
-def get_data(data_type: str) -> realtime.Realtime | StormForecasts:
+def get_data(
+    data_type: str,
+) -> realtime.Realtime | StormForecasts:
     import pickle
 
-    def download_current_data(data_type: str) -> realtime.Realtime | StormForecasts:
+    def download_current_data(
+        data_type: str,
+    ) -> realtime.Realtime | StormForecasts:
         if data_type == "ucar":
             data = realtime.Realtime(jtwc=True, jtwc_source=data_type)
         if data_type == "hafs":
@@ -32,13 +47,14 @@ def get_data(data_type: str) -> realtime.Realtime | StormForecasts:
     else:
         try:
             # Unpickling the object from a file
-            with open(f"data_{data_type}.pkl", "rb") as file:
-                data = pickle.load(file)
-        except:
+            with open(f"data_{data_type}.pkl", "rb") as file_r:
+                data = pickle.load(file_r)
+        except Exception as e:
+            logging.error(f"Failed {e}")
             data = download_current_data(data_type)
             # Pickling the object to a file
-            with open(f"data_{data_type}.pkl", "wb") as file:
-                pickle.dump(data, file)
+            with open(f"data_{data_type}.pkl", "wb") as file_w:
+                pickle.dump(data, file_w)
 
     return data
 
@@ -56,9 +72,9 @@ def get_df(storm: realtime.storm) -> pd.DataFrame:
 
 
 def main() -> None:
-    realtime_obj = get_data("ucar")
+    realtime_obj: realtime.Realtime = get_data("ucar")
 
-    hafs_storms = get_data("hafs")
+    hafs_storms: realtime.Realtime | StormForecasts = get_data("hafs")
 
     active_storms = realtime_obj.list_active_storms()
 
@@ -100,8 +116,6 @@ def main() -> None:
             ]
             tropycal_forecasts = tropycal_hist.get_operational_forecasts()
 
-            tropycal_forecasts["ICON"][max(tropycal_forecasts["ICON"].keys())]
-
             tropycal_most_recent_forecasts = []
             for key in tropycal_forecasts.keys():
                 my_dict = {}
@@ -125,7 +139,10 @@ def main() -> None:
             my_storm_forecasts.forecasts.extend(hafs_forecasts)
             my_storm_forecasts.forecasts.extend(tropycal_most_recent_forecasts)
 
-            fig = plot_all_forecasts(tropycal_storm_df, my_storm_forecasts)
+            fig = plot_all_forecasts(
+                tropycal_storm_df=tropycal_storm_df,
+                my_storm_forecasts=my_storm_forecasts,
+            )
 
             fig.savefig(f"{my_dir}/{storm_id}/compare.jpg")
         except Exception as e:
@@ -133,4 +150,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    args = manage_cli_args()
+    TEST = args.test
     main()
