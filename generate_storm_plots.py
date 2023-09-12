@@ -93,7 +93,7 @@ def main() -> None:
                 ssl_certificate=False
             )
         except Exception as e:
-            logging.exception(f"Tropycal get storm forecast caught exception {e}")
+            logging.warning(f"Tropycal get storm forecast caught exception {e}")
             continue
 
         pathlib.Path(f"{my_dir}/{storm_id}").mkdir(parents=True, exist_ok=True)
