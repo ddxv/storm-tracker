@@ -1,6 +1,8 @@
 .vscode
 .vscode/*
 
+*.pkl
+
 # location of images
 exported-images/
 exported-images/*

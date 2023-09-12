@@ -1,30 +1,17 @@
 import datetime
 import logging
 import re
-from dataclasses import dataclass, field
 
 import pandas as pd
 import requests
+
+from models import StormForecast, StormForecasts
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
 hafs_endpoint = "https://nomads.ncep.noaa.gov/pub/data/nccf/com/hafs/prod"
-
-
-@dataclass
-class StormForecast:
-    id: str
-    model: str
-    df: pd.DataFrame
-    date: str
-    hour: str
-
-
-@dataclass
-class StormForecasts:
-    forecasts: list[StormForecast] = field(default_factory=list)
 
 
 HOURS = ["00", "06", "12", "18"]
@@ -69,11 +56,38 @@ def get_most_recent_forecasts() -> StormForecasts:
     return storms
 
 
+def parse_response_to_df(response: requests.Response) -> pd.DataFrame:
+    short_stats = response.content.decode("utf-8")
+    rows = []
+    for line in short_stats.splitlines():
+        fhour = line[0:11]
+        long = line[12:26]
+        lat = line[27:39]
+        press = line[40:65]
+        wind = line[66:]
+        keys = [
+            fhour,
+            long,
+            lat,
+            press,
+            wind,
+        ]
+        mydict = {}
+        for chunk in keys:
+            key = chunk.split(":")[0].strip().lower().replace(" ", "_")
+            val = float(chunk.split(":")[1].strip())
+            mydict[key] = val
+        rows.append(mydict)
+    stats_df = pd.DataFrame(rows)
+    stats_df = stats_df.rename(
+        columns={"hour": "fhr", "long": "lon", "max_surf_wind_(knots)": "wind_kt"}
+    )
+    return stats_df
+
+
 def get_forecast(model: str, date_str: str, hour: str) -> StormForecasts:
     response = requests.get(hafs_endpoint + f"/{model}.{date_str}/{hour}/")
-
     all_urls = re.findall('\<a href="([^"]+)"\>', str(response.content))
-
     short_urls = [x for x in all_urls if "stats.short" in x]
 
     if len(short_urls) == 0:
@@ -85,35 +99,14 @@ def get_forecast(model: str, date_str: str, hour: str) -> StormForecasts:
         response = requests.get(
             hafs_endpoint + f"/{model}.{date_str}/{hour}/{short_url}"
         )
-
         storm_id = short_url.split(".")[0]
-
-        short_stats = response.content.decode("utf-8")
-
-        rows = []
-        for line in short_stats.splitlines():
-            fhour = line[0:11]
-            long = line[12:26]
-            lat = line[27:39]
-            press = line[40:65]
-            wind = line[66:]
-            keys = [
-                fhour,
-                long,
-                lat,
-                press,
-                wind,
-            ]
-            mydict = {}
-            for chunk in keys:
-                key = chunk.split(":")[0].strip().lower().replace(" ", "_")
-                val = float(chunk.split(":")[1].strip())
-                mydict[key] = val
-            rows.append(mydict)
-
-        stats_df = pd.DataFrame(rows)
+        stats_df = parse_response_to_df(response)
         hafs_forecast = StormForecast(
-            id=storm_id, df=stats_df, date=date_str, hour=hour, model=model
+            storm_id=storm_id,
+            dataframe=stats_df,
+            forecast_date=datetime.datetime.strptime(date_str, "%Y%m%d").date(),
+            forecast_hour=hour,
+            model_id=model,
         )
         forecasts.append(hafs_forecast)
     return StormForecasts(forecasts=forecasts)
