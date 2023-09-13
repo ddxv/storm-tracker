@@ -479,13 +479,13 @@ my_models = {
         "name": "Hurricane Weather Research and Forecasting Model",
         "color": "#1f77b4",  # muted blue
     },
-    "UKX": {"name": "UK Met Office Model", "color": "#ff7f0e"},  # safety orange
+    "AVNO": {"name": "GFS", "color": "#ff7f0e"},  # safety orange
     "CMC": {
         "name": "Canadian Meteorological Centre",
         "color": "#2ca02c",  # cooked asparagus green
     },
-    "HMON": {
-        "name": "Hurricanes in a Multi-scale Ocean-coupled Non-hydrostatic Model",
+    "NVGM": {
+        "name": "NVGM",
         "color": "#d62728",  # brick red
     },
     "ICON": {
