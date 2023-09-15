@@ -1,4 +1,5 @@
 import datetime
+from typing import Any
 
 import cartopy.crs as ccrs
 import cartopy.feature as cfeature
@@ -202,7 +203,7 @@ def plot_storm(
     tropycal_forecast: dict,
     my_dir: str,
     storm_id: str,
-    **kwargs: StormForecasts,
+    **kwargs: Any,
 ) -> plt.figure:
     tropycal_storm_df = tropycal_to_df(tropycal_hist)
     tropycal_forecast["already_forcasted"] = [
@@ -318,7 +319,7 @@ def plot_compare_forecasts(
     tropycal_hist: realtime.storm,
     hafs_storms: StormForecasts,
     my_dir: str,
-    **kwargs: StormForecasts,
+    **kwargs: Any,
 ) -> plt.figure:
     tropycal_forecasts = tropycal_hist.get_operational_forecasts()
     tropycal_storm_df = tropycal_to_df(tropycal_hist)
