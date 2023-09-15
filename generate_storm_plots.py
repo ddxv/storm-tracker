@@ -9,7 +9,7 @@ from tropycal import realtime
 import hafs
 from config.config import IMAGES_DIR
 from models import StormForecasts
-from plot import plot_compare_forecasts, plot_storm, plot_my_spaghetti
+from plot import plot_compare_forecasts, plot_my_spaghetti, plot_storm
 
 # create logger
 logger = logging.getLogger(__name__)
@@ -51,7 +51,7 @@ def manage_cli_args() -> argparse.Namespace:
 
 
 def get_data(
-    data_type: str,
+    data_type: str, tropycal_hist: None | realtime.Realtime = None
 ) -> realtime.Realtime | StormForecasts:
     import pickle
 
@@ -62,20 +62,25 @@ def get_data(
             data = realtime.Realtime(jtwc=True, jtwc_source=data_type)
         if data_type == "hafs":
             data = hafs.get_most_recent_forecasts()
+        if data_type.startswith("all_forecasts"):
+            if tropycal_hist is not None:
+                data = tropycal_hist.get_operational_forecasts()
+
         return data
 
     if not TEST:
         data = download_current_data(data_type)
     else:
+        pickle_file = f"data_{data_type}.pkl"
         try:
             # Unpickling the object from a file
-            with open(f"data_{data_type}.pkl", "rb") as file_r:
+            with open(pickle_file, "rb") as file_r:
                 data = pickle.load(file_r)
         except Exception:
-            logger.error("Failed")
+            logger.warning("Failed to load pickle, will pull new data")
             data = download_current_data(data_type)
             # Pickling the object to a file
-            with open(f"data_{data_type}.pkl", "wb") as file_w:
+            with open(pickle_file, "wb") as file_w:
                 pickle.dump(data, file_w)
 
     return data
@@ -92,8 +97,9 @@ def plot_tropycal(
 def main(args: argparse.Namespace) -> None:
     logger.info(f"main start {args=}")
     only_plot_storm = args.storm_id
-    my_plots = (PLOT_FUNCTIONS.keys()) if args.plot == "all" else args.plot
+    my_plots = list(PLOT_FUNCTIONS.keys()) if args.plot == "all" else [args.plot]
     realtime_obj: realtime.Realtime = get_data("ucar")
+    hafs_storms: realtime.Realtime | StormForecasts = get_data("hafs")
     active_storms = realtime_obj.list_active_storms()
     if only_plot_storm:
         active_storms = [x for x in active_storms if x == only_plot_storm]
@@ -102,8 +108,6 @@ def main(args: argparse.Namespace) -> None:
     if len(active_storms) == 0:
         logger.warning("No active storms")
         exit()
-
-    hafs_storms: realtime.Realtime | StormForecasts = get_data("hafs")
 
     date_str = datetime.datetime.utcnow().strftime("%Y-%m-%d")
     my_dir = f"{IMAGES_DIR}/{date_str}"
@@ -117,7 +121,7 @@ def main(args: argparse.Namespace) -> None:
                 ssl_certificate=False
             )
             logger.info(f"{storm_id} get_storm_forecasts (all)")
-            tropycal_forecasts = tropycal_hist.get_operational_forecasts()
+            tropycal_forecasts = get_data(f"all_forecasts_{storm_id}", tropycal_hist)
         except Exception:
             logger.warning(f"{storm_id} Tropycal get storm forecast caught exception")
             continue

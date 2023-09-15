@@ -312,7 +312,7 @@ def plot_base(lats: list[float], lons: list[float]) -> tuple[plt.figure, Axes]:
 
 def plot_my_spaghetti(
     storm_id: str,
-    tropycal_forecasts: realtime.storm,
+    tropycal_forecasts: realtime.Realtime,
     my_dir: str,
     **kwargs: Any,
 ) -> plt.figure:
@@ -340,16 +340,14 @@ def plot_my_spaghetti(
             mycast[mydt]["lat"],
             transform=ccrs.PlateCarree(),
             linewidth=1,
-            marker="-",
             # color=get_colors_sshws(np.nan_to_num(mycast[key]["vmax"][i])),
             color="blue",
-            zorder=2,
         )
 
     ax.legend(loc="upper right", prop={"size": 15})
     fig.tight_layout()
     ax.set_aspect("auto")
-    fig.savefig(f"{my_dir}/{storm_id}/spaghet.jpg")
+    fig.savefig(f"{my_dir}/{storm_id}/spaghetti.jpg")
     return fig
 
 
