@@ -92,6 +92,7 @@ def plot_tropycal(
 def main(args: argparse.Namespace) -> None:
     logger.info(f"main start {args=}")
     only_plot_storm = args.storm_id
+    my_plots = (PLOT_FUNCTIONS.keys()) if args.plot == "all" else args.plot
     realtime_obj: realtime.Realtime = get_data("ucar")
     active_storms = realtime_obj.list_active_storms()
     if only_plot_storm:
@@ -123,31 +124,22 @@ def main(args: argparse.Namespace) -> None:
 
         pathlib.Path(f"{my_dir}/{storm_id}").mkdir(parents=True, exist_ok=True)
 
-        if PLOTS == "all":
-            for func in PLOT_FUNCTIONS.values():
-                logger.info(f"{storm_id} plot {func.__name__}")
-                try:
-                    func(
-                        my_dir=my_dir,
-                        storm_id=storm_id,
-                        tropycal_hist=tropycal_hist,
-                        tropycal_forecasts=tropycal_forecasts,
-                        tropycal_forecast=tropycal_forecast,
-                        hafs_storms=hafs_storms,
-                    )
-                except Exception:
-                    logger.exception(
-                        f"{storm_id} plot {func.__name__} failed with exception"
-                    )
-        else:
-            PLOT_FUNCTIONS[PLOTS](
-                my_dir=my_dir,
-                storm_id=storm_id,
-                tropycal_hist=tropycal_hist,
-                tropycal_forecast=tropycal_forecast,
-                tropycal_forecasts=tropycal_forecasts,
-                hafs_storms=hafs_storms,
-            )
+        for plot_name in my_plots:
+            func = PLOT_FUNCTIONS[plot_name]
+            logger.info(f"{storm_id} plot {func.__name__}")
+            try:
+                func(
+                    my_dir=my_dir,
+                    storm_id=storm_id,
+                    tropycal_hist=tropycal_hist,
+                    tropycal_forecasts=tropycal_forecasts,
+                    tropycal_forecast=tropycal_forecast,
+                    hafs_storms=hafs_storms,
+                )
+            except Exception:
+                logger.exception(
+                    f"{storm_id} plot {func.__name__} failed with exception"
+                )
         logger.info(f"{storm_id} done")
     logger.info("main done")
 

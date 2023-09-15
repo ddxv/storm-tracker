@@ -320,7 +320,7 @@ def plot_my_spaghetti(
     lons = []
     lats = []
     for mydt in mycast.keys():
-        lons.extend(mycast[mydt]["lons"])
+        lons.extend(mycast[mydt]["lon"])
         lats.extend(mycast[mydt]["lat"])
     lons = list(set(lons))
     lats = list(set(lats))
@@ -336,8 +336,8 @@ def plot_my_spaghetti(
 
     for mydt in mycast.keys():
         ax.plot(
-            mycast[mydt]["lon"][i],
-            mycast[mydt]["lat"][i],
+            mycast[mydt]["lon"],
+            mycast[mydt]["lat"],
             transform=ccrs.PlateCarree(),
             linewidth=1,
             marker="-",
