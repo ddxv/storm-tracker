@@ -98,7 +98,7 @@ def get_colors_sshws(wind_speed: int) -> str:
 
 
 def get_plot_box(
-    lats: list[float], lons: list[float]
+    lats: list[float], lons: list[float], padding_percent: float = 0.25
 ) -> tuple[tuple[float, float, float, float], float, float]:
     storm_s = min(lats)
     storm_n = max(lats)
@@ -111,8 +111,8 @@ def get_plot_box(
     central_lon = (storm_w + storm_e) / 2
     central_lat = (storm_n + storm_s) / 2
 
-    padding_vertical = storm_height / 4
-    padding_horizontal = storm_width / 4
+    padding_vertical = storm_height * padding_percent
+    padding_horizontal = storm_width * padding_percent
 
     # If same then it is a box
     plot_height = storm_height
@@ -282,15 +282,19 @@ def plot_storm(
             continue
         add_annotation_pointers(ax, fhr=fhr, xy=(x, y))
 
-    fig.tight_layout()
     ax.set_aspect("auto")
+    fig.tight_layout()
 
     fig.savefig(f"{my_dir}/{storm_id}/ucar_myimage.jpg")
     return fig
 
 
-def plot_base(lats: list[float], lons: list[float]) -> tuple[plt.figure, Axes]:
-    plot_box, central_lat, central_lon = get_plot_box(lats, lons)
+def plot_base(
+    lats: list[float], lons: list[float], padding_percent: float = 0.25
+) -> tuple[plt.figure, Axes]:
+    plot_box, central_lat, central_lon = get_plot_box(
+        lats, lons, padding_percent=padding_percent
+    )
 
     fig = plt.figure(dpi=400)
 
@@ -326,36 +330,47 @@ def plot_spaghetti(
     lons = list(set(lons))
     lats = list(set(lats))
 
-    fig, ax = plot_base(lons=lons, lats=lats)
+    fig, ax = plot_base(lons=lons, lats=lats, padding_percent=0.05)
 
     ax.set_title(
-        "MODEL: {my_model}, STORM: " + storm_id,
+        f"MODEL: {my_model}, STORM: {storm_id}",
         loc="left",
         fontweight="bold",
     )
 
-    unique_dates = sorted(list({mydt[:8] for mydt in mycast.keys()}))
+    unique_dates = sorted(
+        list(
+            {
+                (datetime.datetime.strptime(mydt, "%Y%m%d%H").date()).strftime(
+                    "%Y-%m-%d"
+                )
+                for mydt in mycast.keys()
+            }
+        )
+    )
     cmap = plt.get_cmap(
         "inferno"
     )  # You can also use 'plasma', 'magma', or 'viridis' here
     norm = plt.Normalize(vmin=0, vmax=len(unique_dates) - 1)
     date_to_color = {date: cmap(norm(index)) for index, date in enumerate(unique_dates)}
 
+    labeled = []
     for mydt in mycast.keys():
-        mydatetime = mydt.strptime("%Y%m%d%h")
-        my_date = (mydatetime.date).strftime("%Y-%m-%d")
+        mydatetime = datetime.datetime.strptime(mydt, "%Y%m%d%H")
+        my_date = (mydatetime.date()).strftime("%Y-%m-%d")
         ax.plot(
             mycast[mydt]["lon"],
             mycast[mydt]["lat"],
             transform=ccrs.PlateCarree(),
             linewidth=1,
             color=date_to_color[my_date],
-            label=my_date.strftime("%Y-%m-%d"),
+            label=my_date if my_date not in labeled else "_nolegend",
         )
+        labeled.append(my_date)
 
-    ax.legend(loc="upper right", prop={"size": 15})
-    fig.tight_layout()
+    ax.legend(loc="upper right", prop={"size": 10})
     ax.set_aspect("auto")
+    fig.tight_layout()
     fig.savefig(f"{my_dir}/{storm_id}/spaghetti.jpg")
     return fig
 
@@ -457,8 +472,8 @@ def plot_compare_forecasts(
             label=model,
         )
     ax.legend(loc="upper right", prop={"size": 15})
-    fig.tight_layout()
     ax.set_aspect("auto")
+    fig.tight_layout()
     fig.savefig(f"{my_dir}/{storm_id}/compare.jpg")
     return fig
 
