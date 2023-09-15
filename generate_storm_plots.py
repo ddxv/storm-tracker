@@ -2,6 +2,7 @@ import argparse
 import datetime
 import logging
 import pathlib
+from typing import Any, Callable
 
 from tropycal import realtime
 
@@ -33,6 +34,18 @@ def manage_cli_args() -> argparse.Namespace:
         default=False,
         action="store_true",
     )
+    parser.add_argument(
+        "-p",
+        "--plot",
+        help="Which plot to generate, default all",
+        choices=["all", "tropycal", "regular", "compare"],
+        default="all",
+    )
+    parser.add_argument(
+        "-s",
+        "--storm-id",
+        help="Which currently active storm to plot",
+    )
     args, leftovers = parser.parse_known_args()
     return args
 
@@ -58,8 +71,8 @@ def get_data(
             # Unpickling the object from a file
             with open(f"data_{data_type}.pkl", "rb") as file_r:
                 data = pickle.load(file_r)
-        except Exception as e:
-            logging.error(f"Failed {e}")
+        except Exception:
+            logger.error("Failed")
             data = download_current_data(data_type)
             # Pickling the object to a file
             with open(f"data_{data_type}.pkl", "wb") as file_w:
@@ -68,77 +81,81 @@ def get_data(
     return data
 
 
-def plot_images(
-    active_storms: list[str],
-    realtime_obj: realtime.Realtime,
-    hafs_storms: StormForecasts,
+def plot_tropycal(
+    my_dir: str, storm_id: str, tropycal_hist: realtime.storm, **kwargs: Any
 ) -> None:
-    date_str = datetime.datetime.utcnow().strftime("%Y-%m-%d")
-    my_dir = f"{IMAGES_DIR}/{date_str}"
-    for storm_id in active_storms:
-        logging.info(f"{storm_id} start")
-
-        tropycal_hist = realtime_obj.get_storm(storm_id)
-        logging.info(f"{storm_id} pulled tropycal hist")
-        try:
-            tropycal_forecast = tropycal_hist.get_forecast_realtime(
-                ssl_certificate=False
-            )
-        except Exception as e:
-            logging.warning(f"Tropycal get storm forecast caught exception {e}")
-            continue
-
-        pathlib.Path(f"{my_dir}/{storm_id}").mkdir(parents=True, exist_ok=True)
-        logging.info(f"{storm_id} plot tropycal")
-        try:
-            tropycal_hist.plot_forecast_realtime(
-                save_path=f"{my_dir}/{storm_id}/ucar_tropycal_forecast_realtime.jpg"
-            )
-        except Exception as e:
-            logging.exception(f"Plot Tropycal JPG get forecast caught exception {e}")
-        logging.info(f"{storm_id} plot local plot")
-        try:
-            fig = plot_storm(tropycal_hist, tropycal_forecast)
-            fig.savefig(f"{my_dir}/{storm_id}/ucar_myimage.jpg")
-        except Exception as e:
-            logging.exception(f"Plot MyImage JPG Caught exception {e}")
-        logging.info(f"{storm_id} plot local compare")
-        try:
-            tropycal_forecasts = tropycal_hist.get_operational_forecasts()
-
-            logging.info(f"{storm_id} plot local pulled forecasts")
-            fig = plot_compare_forecasts(
-                storm_id=storm_id,
-                tropycal_hist=tropycal_hist,
-                tropycal_forecasts=tropycal_forecasts,
-                hafs_storms=hafs_storms,
-            )
-
-            fig.savefig(f"{my_dir}/{storm_id}/compare.jpg")
-        except Exception as e:
-            logging.exception(f"Plot Compare JPG Caught exception {e}")
-        logging.info(f"{storm_id} done")
+    tropycal_hist.plot_forecast_realtime(
+        save_path=f"{my_dir}/{storm_id}/ucar_tropycal_forecast_realtime.jpg"
+    )
 
 
-def main() -> None:
+def main(args: argparse.Namespace) -> None:
+    logger.info(f"main start {args=}")
+    only_plot_storm = args.storm_id
     realtime_obj: realtime.Realtime = get_data("ucar")
     active_storms = realtime_obj.list_active_storms()
-    logging.info(f"Found {active_storms=}")
+    if only_plot_storm:
+        active_storms = [x for x in active_storms if x == only_plot_storm]
+    logger.info(f"Found {active_storms=}")
+
+    if len(active_storms) == 0:
+        logger.warning("No active storms")
+        exit()
 
     hafs_storms: realtime.Realtime | StormForecasts = get_data("hafs")
 
-    plot_images(
-        active_storms=active_storms,
-        realtime_obj=realtime_obj,
-        hafs_storms=hafs_storms,
-    )
+    date_str = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+    my_dir = f"{IMAGES_DIR}/{date_str}"
+    for storm_id in active_storms:
+        logger.info(f"{storm_id} start")
+        try:
+            logger.info(f"{storm_id} get_storm_hist")
+            tropycal_hist = realtime_obj.get_storm(storm_id)
+            logger.info(f"{storm_id} get_storm_forecast")
+            tropycal_forecast = tropycal_hist.get_forecast_realtime(
+                ssl_certificate=False
+            )
+        except Exception:
+            logger.warning(f"{storm_id} Tropycal get storm forecast caught exception")
+            continue
 
+        pathlib.Path(f"{my_dir}/{storm_id}").mkdir(parents=True, exist_ok=True)
+
+        if PLOTS == "all":
+            for func in PLOT_FUNCTIONS.values():
+                logger.info(f"{storm_id} plot {func.__name__}")
+                try:
+                    func(
+                        my_dir=my_dir,
+                        storm_id=storm_id,
+                        tropycal_hist=tropycal_hist,
+                        tropycal_forecast=tropycal_forecast,
+                        hafs_storms=hafs_storms,
+                    )
+                except Exception:
+                    logger.exception(
+                        f"{storm_id} plot {func.__name__} failed with exception"
+                    )
+        else:
+            PLOT_FUNCTIONS[PLOTS](
+                my_dir=my_dir,
+                storm_id=storm_id,
+                tropycal_hist=tropycal_hist,
+                tropycal_forecast=tropycal_forecast,
+                hafs_storms=hafs_storms,
+            )
+        logger.info(f"{storm_id} done")
+    logger.info("main done")
+
+
+PLOT_FUNCTIONS: dict[str, Callable] = {
+    "tropycal": plot_tropycal,
+    "regular": plot_storm,
+    "compare": plot_compare_forecasts,
+}
 
 if __name__ == "__main__":
     args = manage_cli_args()
     TEST = args.test
-    if TEST:
-        PLOTS = args.plot
-    else:
-        PLOTS = "all"
-    main()
+    PLOTS = args.plot if TEST else "all"
+    main(args)

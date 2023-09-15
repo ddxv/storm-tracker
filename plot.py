@@ -197,15 +197,21 @@ def add_grid_lines(ax: Axes) -> None:
     gl.xlabel_style = axes_label_style
 
 
-def plot_storm(tropycal_hist: realtime.storm, storm_forecast: dict) -> plt.figure:
+def plot_storm(
+    tropycal_hist: realtime.storm,
+    tropycal_forecast: dict,
+    my_dir: str,
+    storm_id: str,
+    **kwargs: StormForecasts,
+) -> plt.figure:
     tropycal_storm_df = tropycal_to_df(tropycal_hist)
-    storm_forecast["already_forcasted"] = [
-        (datetime.timedelta(hours=x) + storm_forecast["init"])
+    tropycal_forecast["already_forcasted"] = [
+        (datetime.timedelta(hours=x) + tropycal_forecast["init"])
         <= tropycal_storm_df.time.max()
-        for x in storm_forecast["fhr"]
+        for x in tropycal_forecast["fhr"]
     ]
 
-    fig, ax = plot_base(tropycal_storm_df, storm_forecast)
+    fig, ax = plot_base(tropycal_storm_df, tropycal_forecast)
 
     ax.set_title(
         "DEVELOPING STORM: " + tropycal_storm_df["name"].values[0],
@@ -245,20 +251,20 @@ def plot_storm(tropycal_hist: realtime.storm, storm_forecast: dict) -> plt.figur
     )
 
     # Forecast Dots
-    for i in range(0, len(storm_forecast["lat"])):
-        if storm_forecast["already_forcasted"][i]:
+    for i in range(0, len(tropycal_forecast["lat"])):
+        if tropycal_forecast["already_forcasted"][i]:
             continue
 
-        fhr = storm_forecast["fhr"][i]
-        x = storm_forecast["lon"][i]
-        y = storm_forecast["lat"][i]
+        fhr = tropycal_forecast["fhr"][i]
+        x = tropycal_forecast["lon"][i]
+        y = tropycal_forecast["lat"][i]
 
         ax.plot(
             x,
             y,
             transform=ccrs.PlateCarree(),
             marker="o",
-            color=get_colors_sshws(np.nan_to_num(storm_forecast["vmax"][i])),
+            color=get_colors_sshws(np.nan_to_num(tropycal_forecast["vmax"][i])),
             markersize=marker_size,
             zorder=2,
         )
@@ -270,6 +276,7 @@ def plot_storm(tropycal_hist: realtime.storm, storm_forecast: dict) -> plt.figur
     fig.tight_layout()
     ax.set_aspect("auto")
 
+    fig.savefig(f"{my_dir}/{storm_id}/ucar_myimage.jpg")
     return fig
 
 
@@ -309,9 +316,11 @@ def plot_base(
 def plot_compare_forecasts(
     storm_id: str,
     tropycal_hist: realtime.storm,
-    tropycal_forecasts: realtime,
     hafs_storms: StormForecasts,
+    my_dir: str,
+    **kwargs: StormForecasts,
 ) -> plt.figure:
+    tropycal_forecasts = tropycal_hist.get_operational_forecasts()
     tropycal_storm_df = tropycal_to_df(tropycal_hist)
     my_storm_forecasts = get_my_recent_forecasts(
         storm_id, tropycal_forecasts=tropycal_forecasts, hafs_storms=hafs_storms
@@ -391,6 +400,7 @@ def plot_compare_forecasts(
     ax.legend(loc="upper right", prop={"size": 15})
     fig.tight_layout()
     ax.set_aspect("auto")
+    fig.savefig(f"{my_dir}/{storm_id}/compare.jpg")
     return fig
 
 
@@ -556,10 +566,3 @@ my_models = {
         "color": "#bcbd22",  # yellowish-green
     },
 }
-
-
-# fig = plot_storm(storm_df, storm_forecast)
-# fig.show()
-
-# fig = plot_all_forecasts(storm_df, forecasts)
-# fig.show()
