@@ -46,6 +46,18 @@ def get_my_recent_forecasts(
     return my_storm_forecasts
 
 
+def tropycal_to_df(storm: realtime.storm) -> pd.DataFrame:
+    storm_df = storm.to_dataframe()
+    by_hour = 12
+    days_ago = 5
+    past_date = datetime.datetime.utcnow() - datetime.timedelta(days=days_ago)
+    storm_df["should_plot_step"] = (storm_df["time"] >= past_date) & (
+        storm_df["time"].dt.hour / by_hour == 0
+    )
+    storm_df["name"] = storm["name"]
+    return storm_df
+
+
 def get_colors_sshws(wind_speed: int) -> str:
     r"""
     Retrieve the default colors for the Saffir-Simpson Hurricane Wind Scale (SSHWS).
@@ -185,7 +197,8 @@ def add_grid_lines(ax: Axes) -> None:
     gl.xlabel_style = axes_label_style
 
 
-def plot_storm(tropycal_storm_df: pd.DataFrame, storm_forecast: dict) -> plt.figure:
+def plot_storm(tropycal_hist: realtime.storm, storm_forecast: dict) -> plt.figure:
+    tropycal_storm_df = tropycal_to_df(tropycal_hist)
     storm_forecast["already_forcasted"] = [
         (datetime.timedelta(hours=x) + storm_forecast["init"])
         <= tropycal_storm_df.time.max()
@@ -295,10 +308,11 @@ def plot_base(
 
 def plot_compare_forecasts(
     storm_id: str,
-    tropycal_storm_df: pd.DataFrame,
+    tropycal_hist: realtime.storm,
     tropycal_forecasts: realtime,
     hafs_storms: StormForecasts,
 ) -> plt.figure:
+    tropycal_storm_df = tropycal_to_df(tropycal_hist)
     my_storm_forecasts = get_my_recent_forecasts(
         storm_id, tropycal_forecasts=tropycal_forecasts, hafs_storms=hafs_storms
     )
