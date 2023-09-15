@@ -1,6 +1,8 @@
 .vscode
 .vscode/*
 
+PlotTesting.ipynb
+
 *.pkl
 
 # location of images
