@@ -8,8 +8,8 @@ from tropycal import realtime
 
 import hafs
 from config.config import IMAGES_DIR
-from models import StormForecast, StormForecasts
-from plot import plot_all_forecasts, plot_storm
+from models import StormForecasts
+from plot import plot_compare_forecasts, plot_storm
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -107,38 +107,13 @@ def main() -> None:
         except Exception as e:
             logging.exception(f"Plot MyImage JPG Caught exception {e}")
         try:
-            lower_storm_id = storm_id[2:4] + storm_id[1:2].lower()
-            hafs_forecasts = [
-                x for x in hafs_storms.forecasts if x["storm_id"] == lower_storm_id
-            ]
             tropycal_forecasts = tropycal_hist.get_operational_forecasts()
 
-            tropycal_most_recent_forecasts = []
-            for key in tropycal_forecasts.keys():
-                my_dict = {}
-                most_recent_time = max(tropycal_forecasts[key].keys())
-                my_date = datetime.datetime.strptime(most_recent_time[0:8], "%Y%m%d")
-                my_hour = most_recent_time[-2:]
-                my_dict["fhr"] = tropycal_forecasts[key][most_recent_time]["fhr"]
-                my_dict["lat"] = tropycal_forecasts[key][most_recent_time]["lat"]
-                my_dict["lon"] = tropycal_forecasts[key][most_recent_time]["lon"]
-                my_dict["wind_kt"] = tropycal_forecasts[key][most_recent_time]["vmax"]
-                my_forecast = StormForecast(
-                    storm_id=lower_storm_id,
-                    model_id=key,
-                    forecast_date=my_date,
-                    forecast_hour=my_hour,
-                    dataframe=pd.DataFrame(my_dict),
-                )
-                tropycal_most_recent_forecasts.append(my_forecast)
-
-            my_storm_forecasts = StormForecasts()
-            my_storm_forecasts.forecasts.extend(hafs_forecasts)
-            my_storm_forecasts.forecasts.extend(tropycal_most_recent_forecasts)
-
-            fig = plot_all_forecasts(
+            fig = plot_compare_forecasts(
+                storm_id=storm_id,
                 tropycal_storm_df=tropycal_storm_df,
-                my_storm_forecasts=my_storm_forecasts,
+                tropycal_forecasts=tropycal_forecasts,
+                hafs_storms=hafs_storms,
             )
 
             fig.savefig(f"{my_dir}/{storm_id}/compare.jpg")

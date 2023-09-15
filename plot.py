@@ -8,8 +8,42 @@ import numpy as np
 import pandas as pd
 from cartopy.mpl.ticker import LatitudeFormatter, LatitudeLocator, LongitudeFormatter
 from matplotlib.pyplot import Axes
+from tropycal import realtime
 
-from models import StormForecasts
+from models import StormForecast, StormForecasts
+
+
+def get_my_recent_forecasts(
+    storm_id: str, tropycal_forecasts: realtime.Realtime, hafs_storms: StormForecasts
+) -> StormForecasts:
+    my_storm_forecasts = StormForecasts()
+
+    lower_storm_id = storm_id[2:4] + storm_id[1:2].lower()
+    tropycal_most_recent_forecasts = []
+    for key in tropycal_forecasts.keys():
+        my_dict = {}
+        most_recent_time = max(tropycal_forecasts[key].keys())
+        my_date = datetime.datetime.strptime(most_recent_time[0:8], "%Y%m%d")
+        my_hour = most_recent_time[-2:]
+        my_dict["fhr"] = tropycal_forecasts[key][most_recent_time]["fhr"]
+        my_dict["lat"] = tropycal_forecasts[key][most_recent_time]["lat"]
+        my_dict["lon"] = tropycal_forecasts[key][most_recent_time]["lon"]
+        my_dict["wind_kt"] = tropycal_forecasts[key][most_recent_time]["vmax"]
+        my_forecast = StormForecast(
+            storm_id=lower_storm_id,
+            model_id=key,
+            forecast_date=my_date,
+            forecast_hour=my_hour,
+            dataframe=pd.DataFrame(my_dict),
+        )
+        tropycal_most_recent_forecasts.append(my_forecast)
+
+    hafs_forecasts = [
+        x for x in hafs_storms.forecasts if x["storm_id"] == lower_storm_id
+    ]
+    my_storm_forecasts.forecasts.extend(hafs_forecasts)
+    my_storm_forecasts.forecasts.extend(tropycal_most_recent_forecasts)
+    return my_storm_forecasts
 
 
 def get_colors_sshws(wind_speed: int) -> str:
@@ -259,9 +293,16 @@ def plot_base(
     return fig, ax
 
 
-def plot_all_forecasts(
-    tropycal_storm_df: pd.DataFrame, my_storm_forecasts: StormForecasts
+def plot_compare_forecasts(
+    storm_id: str,
+    tropycal_storm_df: pd.DataFrame,
+    tropycal_forecasts: realtime,
+    hafs_storms: StormForecasts,
 ) -> plt.figure:
+    my_storm_forecasts = get_my_recent_forecasts(
+        storm_id, tropycal_forecasts=tropycal_forecasts, hafs_storms=hafs_storms
+    )
+
     example_forecast = [
         x for x in my_storm_forecasts.forecasts if x.model_id == "HWRF"
     ][0].dataframe
