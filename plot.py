@@ -161,7 +161,7 @@ def plot_storm(tropycal_storm_df: pd.DataFrame, storm_forecast: dict) -> plt.fig
     fig, ax = plot_base(tropycal_storm_df, storm_forecast)
 
     ax.set_title(
-        "DEVELOPING HURRICANE " + tropycal_storm_df["name"].values[0],
+        "DEVELOPING STORM: " + tropycal_storm_df["name"].values[0],
         loc="left",
         # fontsize=25,
         fontweight="bold",
@@ -269,7 +269,7 @@ def plot_all_forecasts(
     fig, ax = plot_base(tropycal_storm_df, example_forecast)
 
     ax.set_title(
-        "DEVELOPING HURRICANE " + tropycal_storm_df["name"].values[0],
+        "DEVELOPING STORM: " + tropycal_storm_df["name"].values[0],
         loc="left",
         # fontsize=25,
         fontweight="bold",
