@@ -9,7 +9,7 @@ from tropycal import realtime
 import hafs
 from config.config import IMAGES_DIR
 from models import StormForecasts
-from plot import plot_compare_forecasts, plot_storm
+from plot import plot_compare_forecasts, plot_storm, plot_my_spaghetti
 
 # create logger
 logger = logging.getLogger(__name__)
@@ -38,7 +38,7 @@ def manage_cli_args() -> argparse.Namespace:
         "-p",
         "--plot",
         help="Which plot to generate, default all",
-        choices=["all", "tropycal", "regular", "compare"],
+        choices=["all"] + list(PLOT_FUNCTIONS.keys()),
         default="all",
     )
     parser.add_argument(
@@ -115,6 +115,8 @@ def main(args: argparse.Namespace) -> None:
             tropycal_forecast = tropycal_hist.get_forecast_realtime(
                 ssl_certificate=False
             )
+            logger.info(f"{storm_id} get_storm_forecasts (all)")
+            tropycal_forecasts = tropycal_hist.get_operational_forecasts()
         except Exception:
             logger.warning(f"{storm_id} Tropycal get storm forecast caught exception")
             continue
@@ -129,6 +131,7 @@ def main(args: argparse.Namespace) -> None:
                         my_dir=my_dir,
                         storm_id=storm_id,
                         tropycal_hist=tropycal_hist,
+                        tropycal_forecasts=tropycal_forecasts,
                         tropycal_forecast=tropycal_forecast,
                         hafs_storms=hafs_storms,
                     )
@@ -142,6 +145,7 @@ def main(args: argparse.Namespace) -> None:
                 storm_id=storm_id,
                 tropycal_hist=tropycal_hist,
                 tropycal_forecast=tropycal_forecast,
+                tropycal_forecasts=tropycal_forecasts,
                 hafs_storms=hafs_storms,
             )
         logger.info(f"{storm_id} done")
@@ -152,7 +156,9 @@ PLOT_FUNCTIONS: dict[str, Callable] = {
     "tropycal": plot_tropycal,
     "regular": plot_storm,
     "compare": plot_compare_forecasts,
+    "spaghetti": plot_my_spaghetti,
 }
+
 
 if __name__ == "__main__":
     args = manage_cli_args()

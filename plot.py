@@ -212,7 +212,15 @@ def plot_storm(
         for x in tropycal_forecast["fhr"]
     ]
 
-    fig, ax = plot_base(tropycal_storm_df, tropycal_forecast)
+    lons = (
+        tropycal_storm_df[tropycal_storm_df["should_plot_step"]]["lon"].tolist()
+        + tropycal_forecast["lon"]
+    )
+    lats = (
+        tropycal_storm_df[tropycal_storm_df["should_plot_step"]]["lat"].tolist()
+        + tropycal_forecast["lat"]
+    )
+    fig, ax = plot_base(lons=lons, lats=lats)
 
     ax.set_title(
         "DEVELOPING STORM: " + tropycal_storm_df["name"].values[0],
@@ -281,19 +289,7 @@ def plot_storm(
     return fig
 
 
-def plot_base(
-    storm: pd.DataFrame, storm_forecast: pd.DataFrame | dict
-) -> tuple[plt.figure, Axes]:
-    if isinstance(storm_forecast, dict):
-        forecast_lons = storm_forecast["lon"]
-        forecast_lats = storm_forecast["lat"]
-    else:
-        forecast_lons = storm_forecast["lon"].tolist()
-        forecast_lats = storm_forecast["lat"].tolist()
-
-    lons = storm[storm["should_plot_step"]]["lon"].tolist() + forecast_lons
-    lats = storm[storm["should_plot_step"]]["lat"].tolist() + forecast_lats
-
+def plot_base(lats: list[float], lons: list[float]) -> tuple[plt.figure, Axes]:
     plot_box, central_lat, central_lon = get_plot_box(lats, lons)
 
     fig = plt.figure(dpi=400)
@@ -314,14 +310,57 @@ def plot_base(
     return fig, ax
 
 
+def plot_my_spaghetti(
+    storm_id: str,
+    tropycal_forecasts: realtime.storm,
+    my_dir: str,
+    **kwargs: Any,
+) -> plt.figure:
+    mycast = tropycal_forecasts["HWRF"].copy()
+    lons = []
+    lats = []
+    for mydt in mycast.keys():
+        lons.extend(mycast[mydt]["lons"])
+        lats.extend(mycast[mydt]["lat"])
+    lons = list(set(lons))
+    lats = list(set(lats))
+
+    fig, ax = plot_base(lons=lons, lats=lats)
+
+    ax.set_title(
+        "STORM: " + storm_id,
+        loc="left",
+        # fontsize=25,
+        fontweight="bold",
+    )
+
+    for mydt in mycast.keys():
+        ax.plot(
+            mycast[mydt]["lon"][i],
+            mycast[mydt]["lat"][i],
+            transform=ccrs.PlateCarree(),
+            linewidth=1,
+            marker="-",
+            # color=get_colors_sshws(np.nan_to_num(mycast[key]["vmax"][i])),
+            color="blue",
+            zorder=2,
+        )
+
+    ax.legend(loc="upper right", prop={"size": 15})
+    fig.tight_layout()
+    ax.set_aspect("auto")
+    fig.savefig(f"{my_dir}/{storm_id}/spaghet.jpg")
+    return fig
+
+
 def plot_compare_forecasts(
     storm_id: str,
     tropycal_hist: realtime.storm,
     hafs_storms: StormForecasts,
+    tropycal_forecasts: realtime.Realtime,
     my_dir: str,
     **kwargs: Any,
 ) -> plt.figure:
-    tropycal_forecasts = tropycal_hist.get_operational_forecasts()
     tropycal_storm_df = tropycal_to_df(tropycal_hist)
     my_storm_forecasts = get_my_recent_forecasts(
         storm_id, tropycal_forecasts=tropycal_forecasts, hafs_storms=hafs_storms
@@ -331,7 +370,19 @@ def plot_compare_forecasts(
         x for x in my_storm_forecasts.forecasts if x.model_id == "HWRF"
     ][0].dataframe
 
-    fig, ax = plot_base(tropycal_storm_df, example_forecast)
+    forecast_lons = example_forecast["lon"].tolist()
+    forecast_lats = example_forecast["lat"].tolist()
+
+    lons = (
+        tropycal_storm_df[tropycal_storm_df["should_plot_step"]]["lon"].tolist()
+        + forecast_lons
+    )
+    lats = (
+        tropycal_storm_df[tropycal_storm_df["should_plot_step"]]["lat"].tolist()
+        + forecast_lats
+    )
+
+    fig, ax = plot_base(lons=lons, lats=lats)
 
     ax.set_title(
         "DEVELOPING STORM: " + tropycal_storm_df["name"].values[0],
