@@ -9,7 +9,7 @@ from tropycal import realtime
 import hafs
 from config.config import IMAGES_DIR
 from models import StormForecasts
-from plot import plot_compare_forecasts, plot_my_spaghetti, plot_storm
+from plot import plot_compare_forecasts, plot_spaghetti, plot_storm
 
 # create logger
 logger = logging.getLogger(__name__)
@@ -152,7 +152,7 @@ PLOT_FUNCTIONS: dict[str, Callable] = {
     "tropycal": plot_tropycal,
     "regular": plot_storm,
     "compare": plot_compare_forecasts,
-    "spaghetti": plot_my_spaghetti,
+    "spaghetti": plot_spaghetti,
 }
 
 

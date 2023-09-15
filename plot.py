@@ -310,13 +310,14 @@ def plot_base(lats: list[float], lons: list[float]) -> tuple[plt.figure, Axes]:
     return fig, ax
 
 
-def plot_my_spaghetti(
+def plot_spaghetti(
     storm_id: str,
     tropycal_forecasts: realtime.Realtime,
     my_dir: str,
     **kwargs: Any,
 ) -> plt.figure:
-    mycast = tropycal_forecasts["HWRF"].copy()
+    my_model = "HWRF"
+    mycast = tropycal_forecasts[my_model].copy()
     lons = []
     lats = []
     for mydt in mycast.keys():
@@ -328,20 +329,28 @@ def plot_my_spaghetti(
     fig, ax = plot_base(lons=lons, lats=lats)
 
     ax.set_title(
-        "STORM: " + storm_id,
+        "MODEL: {my_model}, STORM: " + storm_id,
         loc="left",
-        # fontsize=25,
         fontweight="bold",
     )
 
+    unique_dates = sorted(list({mydt[:8] for mydt in mycast.keys()}))
+    cmap = plt.get_cmap(
+        "inferno"
+    )  # You can also use 'plasma', 'magma', or 'viridis' here
+    norm = plt.Normalize(vmin=0, vmax=len(unique_dates) - 1)
+    date_to_color = {date: cmap(norm(index)) for index, date in enumerate(unique_dates)}
+
     for mydt in mycast.keys():
+        mydatetime = mydt.strptime("%Y%m%d%h")
+        my_date = (mydatetime.date).strftime("%Y-%m-%d")
         ax.plot(
             mycast[mydt]["lon"],
             mycast[mydt]["lat"],
             transform=ccrs.PlateCarree(),
             linewidth=1,
-            # color=get_colors_sshws(np.nan_to_num(mycast[key]["vmax"][i])),
-            color="blue",
+            color=date_to_color[my_date],
+            label=my_date.strftime("%Y-%m-%d"),
         )
 
     ax.legend(loc="upper right", prop={"size": 15})
