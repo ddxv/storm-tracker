@@ -55,9 +55,12 @@ def get_data(
 ) -> realtime.Realtime | StormForecasts:
     import pickle
 
+    logger.info(f"get_data {data_type=} start")
+
     def download_current_data(
         data_type: str,
     ) -> realtime.Realtime | StormForecasts:
+        logger.info(f"download_data {data_type=} download")
         if data_type == "ucar":
             data = realtime.Realtime(jtwc=True, jtwc_source=data_type)
         if data_type == "hafs":
@@ -71,6 +74,7 @@ def get_data(
     if not TEST:
         data = download_current_data(data_type)
     else:
+        logger.info(f"get_data {data_type=} use cached")
         pickle_file = f"data_{data_type}.pkl"
         try:
             # Unpickling the object from a file
@@ -83,6 +87,7 @@ def get_data(
             with open(pickle_file, "wb") as file_w:
                 pickle.dump(data, file_w)
 
+    logger.info(f"get_data {data_type=} finished")
     return data
 
 
