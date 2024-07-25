@@ -100,12 +100,16 @@ def plot_tropycal(
 
 
 def main(args: argparse.Namespace) -> None:
+
     logger.info(f"main start {args=}")
     only_plot_storm = args.storm_id
+
     my_plots = list(PLOT_FUNCTIONS.keys()) if args.plot == "all" else [args.plot]
+
     realtime_obj: realtime.Realtime = get_data("ucar")
     hafs_storms: realtime.Realtime | StormForecasts = get_data("hafs")
     active_storms = realtime_obj.list_active_storms()
+
     if only_plot_storm:
         active_storms = [x for x in active_storms if x == only_plot_storm]
     logger.info(f"Found {active_storms=}")
@@ -114,21 +118,27 @@ def main(args: argparse.Namespace) -> None:
         logger.warning("No active storms")
         exit()
 
-    date_str = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+    date_str = datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
     my_dir = f"{IMAGES_DIR}/{date_str}"
+
     for storm_id in active_storms:
         logger.info(f"{storm_id} start")
         try:
             logger.info(f"{storm_id} get_storm_hist")
+
             tropycal_hist = realtime_obj.get_storm(storm_id)
+
             logger.info(f"{storm_id} get_storm_forecast")
             tropycal_forecast = tropycal_hist.get_forecast_realtime(
-                ssl_certificate=False
+                ssl_certificate="/usr/lib/ssl/cert.pem"
             )
+
             logger.info(f"{storm_id} get_storm_forecasts (all)")
             tropycal_forecasts = get_data(f"all_forecasts_{storm_id}", tropycal_hist)
-        except Exception:
-            logger.warning(f"{storm_id} Tropycal get storm forecast caught exception")
+        except Exception as e:
+            logger.warning(
+                f"{storm_id} Tropycal get storm forecast caught exception: {e}"
+            )
             continue
 
         pathlib.Path(f"{my_dir}/{storm_id}").mkdir(parents=True, exist_ok=True)

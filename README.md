@@ -12,7 +12,8 @@ Currently, scrapes data and directly plots the data, saving the output as PNG to
 Run:
 `python generate_storm_plots.py`
 
-As pulling data from sources can be quite slow, a `-t` or `--test` flag is available to pickle data once downloaded from sources.
+Pulling data from sources can be quite slow, a `-t` or `--test` flag will pickle data for subsequent runs.
+`python generate_storm_plots.py -t`
 
 ## API Service
 
@@ -25,7 +26,7 @@ image types: compare, myplot, tropycal
 ## Setup
 
 - Current setup is based on Python3.11
-- pip install dependencies, found in pyproject.toml: `pip install pandas requests litestar uvicorn gunicorn tropycal pygrib`
+- pip install dependencies, found in pyproject.toml: `pip install pandas requests litestar uvicorn gunicorn tropycal pygrib shapely cartopy`
 
 Installing tropycal and pygrib required unique steps in my environment, so likely you will need to check their documentation for your own installation.
 
